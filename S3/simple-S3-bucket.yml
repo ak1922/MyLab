@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Create S3 bucket with bucket name parameter
+
+Parameters:
+
+  BucketName:
+    Type: String
+    Description: Name of s3 bucket 
+
+Resources:
+
+  rS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: !Ref BucketName
+      Tags:
+        - Key: "Name"
+          Value: "TestProject-bucket"
+      VersioningConfiguration:
+        Status: "Enabled"
+#Outputs:
