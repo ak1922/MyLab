@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Create simple EC2 instance
+#Parameters:
+  
+Resources:
+  rSecGrpTest:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for test ec2 instance allow SSH and HTTP  # Required
+      GroupName: HTTPSSHGrpTest
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name 
+          Value: TestProject-SecGrp
+  
+  rTestProjectInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0b5eea76982371e91
+      InstanceType: t2.micro
+      KeyName: AdminNodehouse
+      SecurityGroupIds:
+        - !Ref rSecGrpTest
+      Tags:
+        - Key: Name 
+          Value: TestProject-Instance
+  
+#Outputs:
