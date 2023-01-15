@@ -1,0 +1,20 @@
+{
+    "Id": "Policy1673819852313",
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "Stmt1673819845664",
+        "Action": [
+          "s3:PutObject"
+        ],
+        "Effect": "Allow",
+        "Resource": "arn:aws:s3:::placo-zaco",
+        "Principal": {
+          "AWS": [
+            "arn:aws:iam::355740888737:user/ak"
+          ]
+        }
+      }
+    ]
+  }
+
