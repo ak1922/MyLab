@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Create an encrypted Amazon EFS file system, mount it on an Amazon EC2 instance in your VPC, and test the setup.
+
+Parameters:
+
+  KeyPair:
+    Description: Key Pair for EC2 Instance
+    Type: AWS::EC2::KeyPair::KeyName
+
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+Resources:
+  rEC2INSTEFSgrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Amazon EFS walkthrough 1, SG for EC2 instance
+      GroupName: efs-walkthrough1-ec2-sg
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+      Tags: 
+        - Key: "Name"
+          Value: "EFS-EC2-WALKTHRU"
+
+      VpcId: vpc-0e0e378595d502111
+  
+  rEFSMNTgrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Amazon EFS walkthrough 1, SG for mount target
+      GroupName: efs-walkthrough1-mt-sg
+      Tags: 
+        - Key: "Name"
+          Value: "EFS-EC2-WALKTHRU"
+      VpcId: vpc-0e0e378595d502111
+  
+  # rSecGrpAmnd:
+  #   Type: AWS::EC2::SecurityGroupIngress
+  #   Properties: 
+  #     Description: Authorize inbound access to the security group for the Amazon EFS mount target (efs-walkthrough1-mt-sg)
+  #     FromPort: 2049
+  #     GroupId: !Ref rEFSMNTgrp
+  #     IpProtocol: TCP 
+  #     SourceSecurityGroupId: !Ref rEC2INSTEFSgrp
+  
+  rEFSFS:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      AvailabilityZoneName: us-east-1a
+      Encrypted: true
+      LifecyclePolicies:
+        - TransitionToIA: AFTER_1_DAY
+      FileSystemTags:
+        - Key: "Name"
+          Value: "EFS-EC2-WALKTHRU"
+
+  rMNTTRGT:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref rEFSFS
+      SecurityGroups: 
+        - !Ref rEFSMNTgrp
+      SubnetId: subnet-05df6cc29e9c9c4eb
+
+  rEC2Inst:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref KeyPair
+      SecurityGroupIds:
+        - !Ref rEC2INSTEFSgrp
+      Tags:
+        - Key: "Name"
+          Value: "EFS-EC2-WALKTHRU"
+      
+      UserData: !Base64 |
+        #!/bin/bash -x
+
+        sudo yum -y update
+        sudo yum -y install nfs-utils
+        sudo mkdir /mnt/efs-mount-point
+
+#Outputs:
