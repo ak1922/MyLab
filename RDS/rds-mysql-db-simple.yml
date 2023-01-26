@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Create Security Group and MySQL RDS database
+  
+Parameters:
+  pVPCID:
+    Description: Parameter for VPC
+    Type: AWS::EC2::VPC::Id
+
+  pDBPass:
+    Description: Database password 
+    Type: String 
+  
+  pDBUser:
+    Description: Database Username 
+    Type: String 
+Resources:
+  
+  rMySQLdbSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Database security group for MySQL port 3306
+      GroupName: ak-rds-mysql-sec-grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+      Tags: 
+        - Key: "Name"
+          Value: "ak-rds-mysql-sec-grp"
+      VpcId: !Ref pVPCID
+
+  rMYSQLDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: "20"
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      DBInstanceIdentifier: shipyards
+      DBInstanceClass: db.t2.micro
+      DBName: liners
+      Engine: mysql
+      MasterUserPassword: !Ref pDBPass
+      MasterUsername: !Ref pDBUser
+      NetworkType: IPV4
+      Port: "3306"
+      PubliclyAccessible: true
+      StorageType: gp2 
+      Tags:
+        - Key: "Name"
+          Value: "ak-rds-mysql"
+      VPCSecurityGroups:
+        - !Ref rMySQLdbSecGrp
+
+#utputs:

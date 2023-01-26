@@ -38,14 +38,15 @@ Resources:
           Value: "EFS-EC2-WALKTHRU"
       VpcId: vpc-0e0e378595d502111
   
-  # rSecGrpAmnd:
-  #   Type: AWS::EC2::SecurityGroupIngress
-  #   Properties: 
-  #     Description: Authorize inbound access to the security group for the Amazon EFS mount target (efs-walkthrough1-mt-sg)
-  #     FromPort: 2049
-  #     GroupId: !Ref rEFSMNTgrp
-  #     IpProtocol: TCP 
-  #     SourceSecurityGroupId: !Ref rEC2INSTEFSgrp
+  rSecGrpAmnd:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties: 
+      Description: Authorize inbound access to the security group for the Amazon EFS mount target (efs-walkthrough1-mt-sg)
+      FromPort: 2049
+      ToPort: 2049
+      GroupId: !Ref rEFSMNTgrp
+      IpProtocol: TCP 
+      SourceSecurityGroupId: !Ref rEC2INSTEFSgrp
   
   rEFSFS:
     Type: AWS::EFS::FileSystem
@@ -64,8 +65,8 @@ Resources:
       FileSystemId: !Ref rEFSFS
       SecurityGroups: 
         - !Ref rEFSMNTgrp
-      SubnetId: subnet-05df6cc29e9c9c4eb
-
+      SubnetId: subnet-078cb67f5f043fa5c
+      
   rEC2Inst:
     Type: AWS::EC2::Instance
     Properties:
