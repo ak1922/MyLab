@@ -25,6 +25,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
+          CidrIp: 0.0.0.0/0
       Tags: 
         - Key: "Name"
           Value: "ak-rds-mysql-sec-grp"
@@ -52,4 +53,4 @@ Resources:
       VPCSecurityGroups:
         - !Ref rMySQLdbSecGrp
 
-#utputs:
+#Outputs:
