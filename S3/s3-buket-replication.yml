@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Two S3 buckets with Replication
+
+Parameters:
+  
+Resources:
+  
+  rBucket1:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      BucketName: rox-1
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: true
+      Tags:
+        - Key: "Name"
+          Value: "S3-Rep-Bucket"
+
+  rBucket2:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      BucketName: rox-1
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: true
+      Tags:
+        - Key: "Name"
+          Value: "S3-Rep-Bucket"
+
+Outputs:
