@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Configure AWS Load Balancers with Auto Scaling Group and Launch Template.
+
+#Parameters:
+  
+Resources:
+  
+  rSecGrpId:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: AutoScaling secity group. SSH and HTTP ports 22 and 80
+      GroupName: ak-asg-sec-grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name 
+          Value: ak-asg-sec-grp
+      VpcId: vpc-0e0e378595d502111
+
+  rTrgGrp:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      HealthCheckIntervalSeconds: 5
+      HealthCheckPath: /
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      Name: ak-asg-trg-grp
+      Protocol: HTTP
+      ProtocolVersion: HTTP1 
+      TargetType: instance 
+      UnhealthyThresholdCount: 2
+      Tags: 
+        - Key: Name 
+          Value: ak-asg-trg-grp
+      VpcId: vpc-0e0e378595d502111
+
+#Outputs:
