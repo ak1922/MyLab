@@ -2,11 +2,27 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: |
   Configure AWS Load Balancers with Auto Scaling Group and Launch Template.
 
-#Parameters:
+Parameters:
   
+  pVPCID:
+    Description: Parameter for VPC
+    Type: AWS::EC2::VPC::Id
+  
+  pSubnets:
+    Description: List of subnets for Application Load Balancer
+    Type: List<AWS::EC2::Subnet::Id>
+
+  pKeyPair:
+    Description: EC2 Key pair
+    Type: AWS::EC2::KeyPair::KeyName
+
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
 Resources:
   
-  rSecGrpId:
+  rAsgSecGrpId:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: AutoScaling secity group. SSH and HTTP ports 22 and 80
@@ -23,18 +39,21 @@ Resources:
       Tags:
         - Key: Name 
           Value: ak-asg-sec-grp
-      VpcId: vpc-0e0e378595d502111
+      VpcId: !Ref pVPCID
 
-  rTrgGrp:
+  rAsgTrgGrp:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties: 
-      HealthCheckIntervalSeconds: 5
+      HealthCheckIntervalSeconds: 15
       HealthCheckPath: /
-      HealthCheckPort: 80
+      HealthCheckPort: traffic-port
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 3
+      Matcher:
+        HttpCode: '200'
       Name: ak-asg-trg-grp
+      Port: 80
       Protocol: HTTP
       ProtocolVersion: HTTP1 
       TargetType: instance 
@@ -44,4 +63,80 @@ Resources:
           Value: ak-asg-trg-grp
       VpcId: vpc-0e0e378595d502111
 
+  rAplLodBal:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties: 
+      Name: ak-apl-lod-bal
+      Scheme: internet-facing
+      SecurityGroups: 
+        - !Ref rAsgSecGrpId
+      Subnets: 
+        - !Ref pSubnets
+      Type: application
+      Tags: 
+        - Key: Name
+          Value: ak-apl-lod-bal
+
+  rrAplLodBalList:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties: 
+      DefaultActions: 
+        - Type: foward
+          TargetGroupArn: !Ref rAsgTrgGrp
+      LoadBalancerArn: !Ref rAplLodBal
+      Port: 80
+      Protocol: HTTP
+  
+  rAsgCludWtchAlm:
+    Type: AWS::CloudWatch::Alarm
+    Properties: 
+      AlarmActions: 
+        - String
+      AlarmDescription: CloudWatch alarm for AutoScaling Group
+      AlarmName: ak-asg-wtch-alarm
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Period: 60
+      Statistic: Average
+      Threshold: 50
+
+  rAsgLauhTemp:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: ak-asg-lauh-temp
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: t2.micro
+        KeyName: !Ref pKeyPair
+        SecurityGroupIds:
+          - !Ref rAsgSecGrpId
+        
+        UserData: !Base64 |
+        
+          #!/bin/bash -x
+          sudo yum update -y
+          sudo yum install -y httpd
+          TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` \
+          && PRIVATE_IP=`curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/local-ipv4`
+          TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` \
+          && PUBLIC_IP=`curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4` 
+          DATE_TIME=`date`
+          chmod -R 777 /var/www/html
+          echo "<html>
+          <head>
+              <title> Application Load Balancer</title>
+          </head>
+          <body>
+              <h1>Testing Application Load Balancer</h1>
+              <h2>Congratulations! You have created an instance from Launch Template</h2>
+              <h3>This web server is launched from the launch template by AK</h3>
+              <p>This instance is created at <b>$DATE_TIME</b></p>
+              <p>Private IP address of this instance is <b>$PRIVATE_IP</b></p>
+              <p>Public IP address of this instance is <b>$PUBLIC_IP</b></p>
+          </body>
+          </html>" > /var/www/html/index.html
+          systemctl start httpd
+          systemctl enable httpd
 #Outputs:

@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: |
   Two S3 buckets with Replication
 
-Parameters:
+#Parameters:
   
 Resources:
   
@@ -10,10 +10,6 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: Private
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-            SSEAlgorithm: AES256
       BucketName: rox-1
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -30,10 +26,6 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: Private
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-            SSEAlgorithm: AES256
       BucketName: rox-1
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -46,4 +38,4 @@ Resources:
         - Key: "Name"
           Value: "S3-Rep-Bucket"
 
-Outputs:
+#Outputs:
