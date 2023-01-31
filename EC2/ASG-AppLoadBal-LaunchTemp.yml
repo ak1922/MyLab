@@ -16,7 +16,7 @@ Parameters:
     Description: EC2 Key pair
     Type: AWS::EC2::KeyPair::KeyName
 
-  LatestAmiId:
+  pLatestAmiId:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
 
@@ -107,14 +107,14 @@ Resources:
     Properties:
       LaunchTemplateName: ak-asg-lauh-temp
       LaunchTemplateData:
-        ImageId: !Ref LatestAmiId
+        ImageId: !Ref pLatestAmiId
         InstanceType: t2.micro
         KeyName: !Ref pKeyPair
         SecurityGroupIds:
           - !Ref rAsgSecGrpId
         
         UserData: !Base64 |
-        
+
           #!/bin/bash -x
           sudo yum update -y
           sudo yum install -y httpd
@@ -139,4 +139,35 @@ Resources:
           </html>" > /var/www/html/index.html
           systemctl start httpd
           systemctl enable httpd
+
+  rAsgGrp:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      HealthCheckGracePeriod: 200
+      HealthCheckType: ELB
+      MaxSize: '1'
+      MinSize: '1'
+      DesiredCapacity: '1'
+      VPCZoneIdentifier: 
+        - !Ref Subnets
+      AutoScalingGroupName: ak-asg-grp
+      TargetGroupARNs: 
+        - !Ref rAsgTrgGrp
+      # Tags: 
+      #   - Key: Name
+      #     Value: ak-asg-grp
+      LaunchTemplate:
+        LaunchTemplateId: !Ref rAsgLauhTemp
+        Version: !GetAtt rAsgLauhTemp.LatestVersionNumber
+  
+  rAsgPol:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref myASG
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization 
+        TargetValue: 60
+
 #Outputs:

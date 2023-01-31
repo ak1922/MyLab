@@ -17,7 +17,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
       VersioningConfiguration:
-        Status: true
+        Status: Enabled
       Tags:
         - Key: "Name"
           Value: "S3-Rep-Bucket"
@@ -33,7 +33,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
       VersioningConfiguration:
-        Status: true
+        Status: Enabled
       Tags:
         - Key: "Name"
           Value: "S3-Rep-Bucket"
