@@ -34,9 +34,10 @@ Resources:
   rMYSQLDB:
     Type: AWS::RDS::DBInstance
     Properties:
-      AllocatedStorage: "20"
+      AllocatedStorage: "200"
       AllowMajorVersionUpgrade: false
       AutoMinorVersionUpgrade: true
+      MultiAZ: false
       DBInstanceIdentifier: shipyards
       DBInstanceClass: db.t2.micro
       DBName: liners

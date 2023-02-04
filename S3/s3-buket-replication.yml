@@ -18,6 +18,19 @@ Resources:
         RestrictPublicBuckets: true
       VersioningConfiguration:
         Status: Enabled
+      ReplicationConfiguration:
+        Role: ''
+        Rules:
+          - Id: Ak-s3-Rep-Rule
+            Status: Enabled
+            Prefix: ships
+            Destination:
+              Bucket: !Ref rBucket2
+              StorageClass: STANDARD
+          - Status: Enabled
+            Prefix: boats
+            Destination:
+              Bucket: !Ref rBucket2
       Tags:
         - Key: "Name"
           Value: "S3-Rep-Bucket"
@@ -37,5 +50,6 @@ Resources:
       Tags:
         - Key: "Name"
           Value: "S3-Rep-Bucket"
+
 
 #Outputs:
