@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Create Security Groups, EC2 instances, A records in Route 53 test Routing Policy
+
+#Parameters:
+  
+Resources:
+  rSecGrpTest:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for test ec2 instance allow SSH and HTTP  
+      GroupName: RT53-Test-Sec-Grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      VpcId: vpc-0e0e378595d502111
+      Tags:
+        - Key: Name 
+          Value: RT53-Test-Sec-Grp
+  
+  rRT53ec2Inst1:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0b5eea76982371e91
+      InstanceType: t2.micro
+      KeyName: AdminNodehouse
+      SecurityGroupIds:
+        - !Ref rSecGrpTest
+      Tags:
+        - Key: Name 
+          Value: NVirginia_1
+      
+      UserData: !Base64 |
+          #!/bin/bash -x
+
+          yum update -y
+          yum install -y httpd
+          yum install -y wget
+          cd /var/www/html
+          wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/N.virginia_1/index.html
+          wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/N.virginia_1/N.virginia_1.jpg
+          systemctl start httpd
+          systemctl enable httpd
+
+#Outputs:
