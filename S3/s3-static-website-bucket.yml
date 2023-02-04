@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Create S3 bucket for static website
+
+#Parameters:
+  
+Resources:
+  
+  rs3StaBuck:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: PublicRead
+      BucketName: statweb1287-site
+      WebsiteConfiguration:
+        ErrorDocument: error.html
+        IndexDocument: index.html
+
+  rs3StaBuckPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rs3StaBuck
+      PolicyDocument: 
+        Id: ak-s3staticWebPol
+        Version: 2012-10-17
+        Statement:
+            - Sid: PublicReadForGetBucketObjects
+              Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: !Join 
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref rs3StaBuck
+                  - /*
+
+#Outputs:

@@ -6,6 +6,16 @@ Description: |
   
 Resources:
   
+  ReplicaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: ['sts:AssumeRole']
+          Effect: Allow
+          Principal: 
+            Service: [s3.amazonaws.com]
+
   rBucket1:
     Type: AWS::S3::Bucket
     Properties:
@@ -19,18 +29,18 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       ReplicationConfiguration:
-        Role: ''
+        Role: !Ref ReplicaRole
         Rules:
           - Id: Ak-s3-Rep-Rule
             Status: Enabled
             Prefix: ships
             Destination:
-              Bucket: !Ref rBucket2
+              Bucket: 'arn:aws:s3:::xor-1'
               StorageClass: STANDARD
           - Status: Enabled
             Prefix: boats
             Destination:
-              Bucket: !Ref rBucket2
+              Bucket: 'arn:aws:s3:::xor-1'
       Tags:
         - Key: "Name"
           Value: "S3-Rep-Bucket"
@@ -39,7 +49,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: Private
-      BucketName: rox-1
+      BucketName: xor-1
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
