@@ -69,7 +69,7 @@ Resources:
       Name: ak-apl-lod-bal
       Scheme: internet-facing
       SecurityGroups: 
-        - !Ref rAsgSecGrpId
+        - !GetAtt rAsgSecGrpId.GroupId
       Subnets: 
         - !Ref pSubnets
       Type: application
@@ -90,8 +90,8 @@ Resources:
   rAsgCludWtchAlm:
     Type: AWS::CloudWatch::Alarm
     Properties: 
-      AlarmActions: 
-        - String
+      # AlarmActions: 
+      #   - String
       AlarmDescription: CloudWatch alarm for AutoScaling Group
       AlarmName: ak-asg-wtch-alarm
       ComparisonOperator: GreaterThanThreshold
@@ -148,14 +148,11 @@ Resources:
       MaxSize: '1'
       MinSize: '1'
       DesiredCapacity: '1'
-      VPCZoneIdentifier: 
-        - !Ref Subnets
+      # VPCZoneIdentifier: 
+      #   - !Ref Subnets
       AutoScalingGroupName: ak-asg-grp
       TargetGroupARNs: 
         - !Ref rAsgTrgGrp
-      # Tags: 
-      #   - Key: Name
-      #     Value: ak-asg-grp
       LaunchTemplate:
         LaunchTemplateId: !Ref rAsgLauhTemp
         Version: !GetAtt rAsgLauhTemp.LatestVersionNumber
@@ -163,7 +160,7 @@ Resources:
   rAsgPol:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:
-      AutoScalingGroupName: !Ref myASG
+      AutoScalingGroupName: !Ref rAsgGrp
       PolicyType: TargetTrackingScaling
       TargetTrackingConfiguration:
         PredefinedMetricSpecification:
