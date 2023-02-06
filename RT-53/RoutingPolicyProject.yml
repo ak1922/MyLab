@@ -24,6 +24,36 @@ Resources:
         - Key: Name 
           Value: RT53-Test-Sec-Grp
   
+  rSecGrpTest2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for test ec2 instance allow SSH for clarus-vpc-a 
+      GroupName: RT53-Test-Sec-Grp-clarsvpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      VpcId: vpc-09256fc2619731aa3
+      Tags:
+        - Key: Name 
+          Value: RT53-Test-Sec-Grp-clarsvpc
+
+  rSecGrpTest3:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for test ec2 instance allow SSH for clarus-vpc-a for Windows
+      GroupName: RT53Test-SecGrp-clarsvpc-Windows
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: 0.0.0.0/0
+      VpcId: vpc-09256fc2619731aa3
+      Tags:
+        - Key: Name 
+          Value: RT53Test-SecGrp-clarsvpc-Windows
+
   rRT53ec2Inst1:
     Type: AWS::EC2::Instance
     Properties:
@@ -37,15 +67,146 @@ Resources:
           Value: NVirginia_1
       
       UserData: !Base64 |
-          #!/bin/bash -x
+        #!/bin/bash -x
 
-          yum update -y
-          yum install -y httpd
-          yum install -y wget
-          cd /var/www/html
-          wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/N.virginia_1/index.html
-          wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/N.virginia_1/N.virginia_1.jpg
-          systemctl start httpd
-          systemctl enable httpd
+        yum update -y
+        yum install -y httpd
+        yum install -y wget
+        cd /var/www/html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/N.virginia_1/index.html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/N.virginia_1/N.virginia_1.jpg
+        systemctl start httpd
+        systemctl enable httpd
+
+  rRT53ec2Inst2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0b5eea76982371e91
+      InstanceType: t2.micro
+      KeyName: AdminNodehouse
+      SecurityGroupIds:
+        - !Ref rSecGrpTest
+      Tags:
+        - Key: Name 
+          Value: Geo-Europe
+      
+      UserData: !Base64 |
+        #!/bin/bash -x
+        
+        yum update -y
+        yum install -y httpd
+        yum install -y wget
+        cd /var/www/html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/frankfurt/index.html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/frankfurt/frankfurt.jpg
+        systemctl start httpd
+        systemctl enable httpd
+       
+
+  rRT53ec2Inst3:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0b5eea76982371e91
+      InstanceType: t2.micro
+      KeyName: AdminNodehouse
+      SecurityGroupIds:
+        - !Ref rSecGrpTest
+      Tags:
+        - Key: Name 
+          Value: Geo-Asia
+      
+      UserData: !Base64 |
+        #!/bin/bash -x
+
+        yum update -y
+        yum install -y httpd
+        yum install -y wget
+        cd /var/www/html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/geo-japon/index.html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/geo-japon/Tsubasa.jpg
+        systemctl start httpd
+        systemctl enable httpd
+
+  rRT53ec2Inst4:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0b5eea76982371e91
+      InstanceType: t2.micro
+      KeyName: AdminNodehouse
+      SecurityGroupIds:
+        - !Ref rSecGrpTest2
+      SubnetId: subnet-0812a1ba288f2599a
+      Tags:
+        - Key: Name 
+          Value: Local
+      
+      UserData: !Base64 |
+        #!/bin/bash -x
+
+        yum update -y
+        yum install -y httpd
+        yum install -y wget
+        chkconfig httpd on
+        cd /var/www/html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/local/index.html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/local/Local.jpg
+        service httpd start
+  
+  rRT53ec2Inst5:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c644f818f60ae4f3
+      InstanceType: t2.micro
+      KeyName: AdminNodehouse
+      SecurityGroupIds:
+        - !Ref rSecGrpTest3
+      SubnetId: subnet-0812a1ba288f2599a
+      Tags:
+        - Key: Name 
+          Value: Windows
+  
+  rmyHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties: 
+      HealthCheckConfig: 
+        IPAddress: !GetAtt rRT53ec2Inst1.PublicIp
+        Port: 80
+        Type: HTTP
+        ResourcePath: '/'
+        RequestInterval: 30
+        FailureThreshold: 2
+
+  rARecFailPrim:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Comment: Create A record for  N.Virginia_1 instance IP - Primary record
+      Failover: PRIMARY
+      HealthCheckId: !Ref myHealthCheck
+      HostedZoneId: /hostedzone/Z0980289Z5HKBL3C8FMZ
+      HostedZoneName: nodehouse2.com
+      MultiValueAnswer: false
+      Name: www.nodehouse2.com
+      ResourceRecords:
+        - !GetAtt rRT53ec2Inst1.PublicIp
+      SetIdentifier: Failover Scenario-primary
+      TTL: '60'
+      Type: A 
+
+  LogicalID:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: http://www.nodehouse2.com.s3-website-us-east-1.amazonaws.com 
+        EvaluateTargetHealth: false
+        HostedZoneId: Z3AQBSTGFYJSTF 
+      Comment: A record for S3 website endpoint - Secondary record
+      Failover: SECONDARY
+      # HealthCheckId: "String"
+      # HostedZoneId: "String"
+      # HostedZoneName: "String"
+      Name: www.nodehouse2.com
+      SetIdentifier: Failover Scenario-secondary
+      TTL: "String"
+      Type: A 
 
 #Outputs:
