@@ -29,7 +29,9 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       ReplicationConfiguration:
-        Role: !Ref ReplicaRole
+        Role: !GetAtt
+          - ReplicaRole
+          - Arn
         Rules:
           - Id: Ak-s3-Rep-Rule
             Status: Enabled

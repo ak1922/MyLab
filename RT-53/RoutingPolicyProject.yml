@@ -184,7 +184,6 @@ Resources:
       HealthCheckId: !Ref myHealthCheck
       HostedZoneId: /hostedzone/Z0980289Z5HKBL3C8FMZ
       HostedZoneName: nodehouse2.com
-      MultiValueAnswer: false
       Name: www.nodehouse2.com
       ResourceRecords:
         - !GetAtt rRT53ec2Inst1.PublicIp
@@ -192,7 +191,7 @@ Resources:
       TTL: '60'
       Type: A 
 
-  LogicalID:
+  rARecFailSecd:
     Type: AWS::Route53::RecordSet
     Properties:
       AliasTarget:
@@ -206,7 +205,54 @@ Resources:
       # HostedZoneName: "String"
       Name: www.nodehouse2.com
       SetIdentifier: Failover Scenario-secondary
-      TTL: "String"
+      TTL: '60'
       Type: A 
 
+  rARecGeoErp:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Comment: Create geolocation record for Europe
+      HostedZoneId: /hostedzone/Z0980289Z5HKBL3C8FMZ
+      HostedZoneName: nodehouse2.com
+      Name: geo.nodehouse2.com
+      ResourceRecords:
+        - !GetAtt rRT53ec2Inst2.PublicIp
+      TTL: '60'
+      Type: A
+      SetIdentifier: Geolocation Scenario-Europe 
+      GeoLocation:
+        ContinentCode: EU
+
+  rARecGeoAsia:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Comment: Create Geolocation record for Japan
+      HostedZoneId: /hostedzone/Z0980289Z5HKBL3C8FMZ
+      HostedZoneName: nodehouse2.com
+      Name: geo.nodehouse2.com
+      ResourceRecords:
+        - !GetAtt rRT53ec2Inst3.PublicIp
+      SetIdentifier: Geolocation Scenario-Japan
+      TTL: '60'
+      Type: A  
+      GeoLocation:
+        ContinentCode: AS
+        CountryCode: JP
+
+  rARecGeoOthers:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Comment: Create geolocation record for others
+      HostedZoneId: /hostedzone/Z0980289Z5HKBL3C8FMZ
+      HostedZoneName: nodehouse2.com
+      Name: geo.nodehouse2.com
+      ResourceRecords:
+        - !GetAtt rRT53ec2Inst3.PublicIp
+      SetIdentifier: Geolocation Scenario-Others
+      TTL: '60'
+      Type: A  
+      GeoLocation:
+        ContinentCode: NA
+        CountryCode: US
+        SubdivisionCode: US-VA
 #Outputs:
