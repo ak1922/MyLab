@@ -176,7 +176,7 @@ Resources:
         RequestInterval: 30
         FailureThreshold: 2
 
-  rARecFailPrim:
+  rARecdFailPrim:
     Type: AWS::Route53::RecordSet
     Properties:
       Comment: Create A record for  N.Virginia_1 instance IP - Primary record
@@ -191,7 +191,7 @@ Resources:
       TTL: '60'
       Type: A 
 
-  rARecFailSecd:
+  rARecdFailSecd:
     Type: AWS::Route53::RecordSet
     Properties:
       AliasTarget:
