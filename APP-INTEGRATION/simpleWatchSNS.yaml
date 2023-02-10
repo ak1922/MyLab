@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  EC2 instance with SNS Topic and Cloudwatch alarm
+
+Parameters:
+
+  pKeyPair:
+    Description: EC2 Key pair
+    Type: AWS::EC2::KeyPair::KeyName
+  
+  pLatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+Resources:
+  
+  rSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: ec2Inst-CPU-40pct
+      Subscription:
+        - Endpoint: nodehouse2@protonmail.com
+          Protocol: email
+      TopicName: ec2Inst-CPU-50pct
+
+  rCLDWTCHalarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref rSNSTopic
+      AlarmDescription: Alarm to trigger when instance CPU reaches 40%
+      AlarmName: ec2Inst-CPU-50pct-alarm
+      ComparisonOperator: "GreaterThanThreshold"
+      EvaluationPeriods: 1
+      MetricName: "CPUUtilization"
+      Namespace: AWS/EC2
+      Period: 300
+      Statistic: Average
+      Threshold: 60
+
+  rSecGrpTest:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for test ec2 instance allow SSH and HTTP 
+      GroupName: HTTPSSHGrpTest
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  rEC2Inst:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref pLatestAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref pKeyPair
+      SecurityGroupIds:
+        - !Ref rSecGrpTest
+      Tags:
+        - Key: Name 
+          Value: TestProject-Instance
+
+#Outputs:
