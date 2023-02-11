@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Mount an EFS to two EC2 instances
+
+Parameters:
+  pKeyPair:
+    Description: EC2 instance key
+    Type: AWS::EC2::KeyPair::KeyName
+
+  pLatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  pVPCID:
+    Description: Choose VPCID
+    Type: AWS::EC2::VPC::Id
+
+  pSubnets:
+    Description: List of Subnets
+    Type: List<AWS::EC2::Subnet::Id>
+
+Resources:
+
+  rSecGrp1:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Amazon EC2 security group
+      GroupName: EC2-SecSrp-EFS-project
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags: 
+        - Key: "Name"
+          Value: "EC2-SecSrp-EFS-project"
+      VpcId: vpc-0e0e378595d502111  
+  
+  rSecGrp2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Amazon EC2 security group
+      GroupName: EFS-SecSrp-EFS-project
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 2049
+        ToPort: 2049
+        DestinationSecurityGroupId: !Ref rSecGrp1
+      Tags: 
+        - Key: "Name"
+          Value: "EFS-SecSrp-EFS-project"
+      VpcId: vpc-0e0e378595d502111  
+
+  rEFS:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      AvailabilityZoneName: us-east-1a
+      Encrypted: true
+      LifecyclePolicies:
+        - TransitionToIA: AFTER_1_DAY
+      FileSystemTags:
+        - Key: "Name"
+          Value: "EFS-ak1"
+
+  rMNTTRGT:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref rEFS
+      SecurityGroups: 
+        - !Ref rSecGrp2
+      SubnetId: !Ref pSubnets
+
+  rEC2Inst1:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref pLatestAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref pKeyPair
+      SecurityGroupIds:
+        - !Ref rSecGrp1
+      Tags:
+        - Key: "Name"
+          Value: "EFS-EC2-1"
+      UserData: !Base64 |
+        #! /bin/bash -x
+        yum update -y
+        sudo hostnamectl set-hostname First
+        bash 
+        sudo yum install -y amazon-efs-utils
+        sudo mkdir efs
+        sleep 90
+        sudo mount -t efs ${FileSystemId}:/ efs
+
+#Outputs:
