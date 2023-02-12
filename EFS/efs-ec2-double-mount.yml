@@ -6,18 +6,34 @@ Parameters:
   pKeyPair:
     Description: EC2 instance key
     Type: AWS::EC2::KeyPair::KeyName
-
+  
   pLatestAmiId:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
 
-  pVPCID:
-    Description: Choose VPCID
-    Type: AWS::EC2::VPC::Id
+  pSubnet1:
+    Description: Subnet for AZ us-east-1a
+    Type: AWS::EC2::Subnet::Id
 
-  pSubnets:
-    Description: List of Subnets
-    Type: List<AWS::EC2::Subnet::Id>
+  pSubnet2:
+    Description: Subnet for AZ us-east-1b
+    Type: AWS::EC2::Subnet::Id
+
+  pSubnet3:
+    Description: Subnet for AZ us-east-1c
+    Type: AWS::EC2::Subnet::Id
+
+  pSubnet4:
+    Description: Subnet for AZ us-east-1d
+    Type: AWS::EC2::Subnet::Id
+
+  pSubnet5:
+    Description: Subnet for AZ us-east-1e
+    Type: AWS::EC2::Subnet::Id
+
+  pSubnet6:
+    Description: Subnet for AZ us-east-1f
+    Type: AWS::EC2::Subnet::Id
 
 Resources:
 
@@ -53,22 +69,60 @@ Resources:
 
   rEFS:
     Type: AWS::EFS::FileSystem
-    Properties:
-      AvailabilityZoneName: us-east-1a
-      Encrypted: true
+    Properties: 
       LifecyclePolicies:
         - TransitionToIA: AFTER_1_DAY
       FileSystemTags:
         - Key: "Name"
           Value: "EFS-ak1"
 
-  rMNTTRGT:
+  rMountTarget1:
     Type: AWS::EFS::MountTarget
     Properties:
       FileSystemId: !Ref rEFS
       SecurityGroups: 
         - !Ref rSecGrp2
-      SubnetId: !Ref pSubnets
+      SubnetId: !Ref pSubnet1
+
+  rMountTarget2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref rEFS
+      SecurityGroups: 
+        - !Ref rSecGrp2
+      SubnetId: !Ref pSubnet2
+
+  rMountTarget3:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref rEFS
+      SecurityGroups: 
+        - !Ref rSecGrp2
+      SubnetId: !Ref pSubnet3
+
+  rMountTarget4:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref rEFS
+      SecurityGroups: 
+        - !Ref rSecGrp2
+      SubnetId: !Ref pSubnet4
+
+  rMountTarget5:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref rEFS
+      SecurityGroups: 
+        - !Ref rSecGrp2
+      SubnetId: !Ref pSubnet5
+
+  rMountTarget6:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref rEFS
+      SecurityGroups: 
+        - !Ref rSecGrp2
+      SubnetId: !Ref pSubnet6
 
   rEC2Inst1:
     Type: AWS::EC2::Instance
@@ -91,4 +145,26 @@ Resources:
         sleep 90
         sudo mount -t efs ${FileSystemId}:/ efs
 
+  rEC2Inst2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref pLatestAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref pKeyPair
+      SecurityGroupIds:
+        - !Ref rSecGrp1
+      Tags:
+        - Key: "Name"
+          Value: "EFS-EC2-2"
+      UserData: !Base64 |
+        #! /bin/bash -x
+        yum update -y
+        sudo hostnamectl set-hostname Second
+        bash 
+        sudo yum install -y amazon-efs-utils
+        sudo mkdir efs
+        sleep 90
+        sudo mount -t efs ${FileSystemId}:/ efs
+
 #Outputs:
+# Resource handler returned message: "File System Availability Zone does not match. (Service: Efs, Status Code: 400, Request ID
