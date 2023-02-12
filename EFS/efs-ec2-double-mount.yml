@@ -165,6 +165,3 @@ Resources:
         sudo mkdir efs
         sleep 90
         sudo mount -t efs ${FileSystemId}:/ efs
-
-#Outputs:
-# Resource handler returned message: "File System Availability Zone does not match. (Service: Efs, Status Code: 400, Request ID
