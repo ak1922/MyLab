@@ -165,7 +165,7 @@ Resources:
         - Key: Name 
           Value: Windows
   
-  rmyHealthCheck:
+  rMyHealthCheck:
     Type: AWS::Route53::HealthCheck
     Properties: 
       HealthCheckConfig: 
@@ -176,14 +176,13 @@ Resources:
         RequestInterval: 30
         FailureThreshold: 2
 
-  rARecdFailPrim:
+  rARecordFailPrim:
     Type: AWS::Route53::RecordSet
     Properties:
       Comment: Create A record for  N.Virginia_1 instance IP - Primary record
       Failover: PRIMARY
-      HealthCheckId: !Ref myHealthCheck
+      HealthCheckId: !Ref rMyHealthCheck
       HostedZoneId: /hostedzone/Z0980289Z5HKBL3C8FMZ
-      HostedZoneName: nodehouse2.com
       Name: www.nodehouse2.com
       ResourceRecords:
         - !GetAtt rRT53ec2Inst1.PublicIp
@@ -191,7 +190,7 @@ Resources:
       TTL: '60'
       Type: A 
 
-  rARecdFailSecd:
+  rARecordFailSec:
     Type: AWS::Route53::RecordSet
     Properties:
       AliasTarget:

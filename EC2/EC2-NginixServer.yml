@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+   Install Nginx Web Server on Amazon Linux 2 EC2 instance
+
+Parameters:
+  pKeyPair:
+    Description: Add security key
+    Type: AWS::EC2::KeyPair::KeyName
+
+  pVPC:
+    Description: Choose VPC for ec2 instance
+    Type: AWS::EC2::VPC::Id
+
+  pLatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+Resources:
+
+  rSecGrpNginix:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and HTTP # Required
+      GroupName: NGINIX-ssh-http-sec-grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: NGINIX-ssh-http-sec-grp
+      VpcId: !Ref pVPC
+  
+  rEC2InstNginix:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref pLatestAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref pKeyPair
+      SecurityGroupIds:
+        - !Ref rSecGrpNginix
+      Tags:
+        - Key: Name
+          Value: NGINIX-ec2-linux2-inst
+      UserData: !Base64 |
+        #!/bin/bash -x
+        yum update -y
+        amazon-linux-extras install nginx1
+        systemctl start nginx
+        cd /usr/share/nginx/html
+        chmod -R 777 /usr/share/nginx/html
+        rm index.html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/index.html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/ken.jpg
+        systemctl restart nginx
+        systemctl enable nginx
+
+
+#Outputs:
