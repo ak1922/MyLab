@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Install Nginx Web Server on Amazon Linux 2 EC2 instance with Auto scaling group and Load balancer
+
+Parameters:
+
+  pKeyPair:
+    Description: Add security key
+    Type: AWS::EC2::KeyPair::KeyName
+
+  pVPC:
+    Description: Choose VPC for ec2 instance
+    Type: AWS::EC2::VPC::Id
+
+  pLatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  pSubnets:
+    Description: Subnets where EC2 instances are
+    Type: List<AWS::EC2::Subnet::Id>
+
+  
+Resources:
+
+  rSecGrpNginix:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and HTTP # Required
+      GroupName: NGINIX-ssh-http-sec-grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: NGINIX-ssh-http-sec-grp
+      VpcId: !Ref pVPC
+
+  rSecGrpNginixLoadBalancer:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and HTTP # Required
+      GroupName: NGINIX-ALB-http-sec-grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: NGINIX-ALB-http-sec-grp
+      VpcId: !Ref pVPC
+
+  rNginixEC2LaunchTemp:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref pLatestAmiId
+        InstanceType: t2.micro
+        KeyName: !Ref pKeyPair
+        SecurityGroupIds:
+          - !GetAtt rSecGrpNginix.GroupId
+        UserData: !Base64 |
+          #!/bin/bash -x
+          yum update -y
+          amazon-linux-extras install nginx1
+          systemctl start nginx
+          cd /usr/share/nginx/html
+          chmod -R 777 /usr/share/nginx/html
+          rm index.html
+          wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/index.html
+          wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/ken.jpg
+          systemctl restart nginx
+          systemctl enable nginx
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: NGINIX-ec2-linux2-inst
+
+  rNginixTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 5
+      HealthCheckPath: /
+      HealthCheckPort: '80'
+      HealthCheckTimeoutSeconds: 2
+      HealthyThresholdCount: 2
+      IpAddressType: ipv4
+      Name: NginixServer-TargetGroup
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance 
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref pVPC
+
+  rNginixLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: NginixALB
+      Scheme: internet-facing
+      SecurityGroups:
+        - !GetAtt rSecGrpNginixLoadBalancer.GroupId
+      Subnets: !Ref pSubnets
+      Tags:
+        - Key: Name
+          Value: NginixALB
+      Type: application
+
+  rNginixLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions: # Required
+        - TargetGroupArn: !Ref rNginixTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref rNginixLoadBalancer # Required
+      Port: 80
+      Protocol: HTTP
+
+  rNginixAutoSalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: NginixAutoScalingGrp
+      DesiredCapacity: "2"
+      MaxSize: "3" # Required
+      MinSize: "1" # Required
+      AvailabilityZones: !GetAZs ""
+      HealthCheckGracePeriod: 300
+      HealthCheckType: "ELB"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref rNginixEC2LaunchTemp
+        Version: !GetAtt rNginixEC2LaunchTemp.LatestVersionNumber
+      TargetGroupARNs:
+      - !Ref rNginixTargetGroup
+
+#Outputs:
