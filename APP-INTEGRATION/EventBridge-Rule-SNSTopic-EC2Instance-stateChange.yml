@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Create Eventbridge Rule with SNA topic for change in EC2 instance state
+
+#Parameters:
+  
+Resources:
+  
+  rSNSTopicNodeHouseInstChangeState:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: NodeHouseInstChangeState
+      Subscription:
+        - Endpoint: nodehouse2@protonmail.com
+          Protocol: email
+      TopicName: NodeHouseInstChangeState
+
+  rEventBridgeRuleNodeHouseInstChangeState:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Rule on status change of EC2 instance Nodehouse
+      EventPattern: 
+        source: 
+          - aws.ec2
+        detail-type: 
+          - EC2 Instance State-change Notification
+        detail:
+          eventSource:
+            - ec2.amazonaws.com
+          eventName:
+            - "RunInstances"
+            - "RebootInstances"
+            - "StartInstances"
+            - "StopInstances"
+            - "TerminateInstances"
+          instance-id: 
+            - i-0c9e630e176ac1aff
+      Name: NodeHouseInstChangeState-Rule
+      State: ENABLED
+      Targets: 
+        - Arn: 
+            !GetAtt rSNSTopicNodeHouseInstChangeState.TopicArn
+          Id: EBR123
+
+#Outputs:
