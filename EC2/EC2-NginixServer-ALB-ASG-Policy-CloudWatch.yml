@@ -1,0 +1,177 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Nginix Linux server with AutoScaling group, target group application loadbalancer, CloudWtach alarm with SNS topic and notification
+
+# Resources
+# Nginix Webserver Security Group -> rSecGrpNginix
+# Nginix server Target Group -> rNginixTargetGroup
+# Nginix server Application Loadbalancer -> rAppLoadBalancerNginix
+# Nginix server Application Loadbalancer Listener -> rNginixListener
+# Nginix server Launch Template -> rNginixlaunchtemplate
+# Nginix server AutoScaling Group -> rNginixAutoscalingGroup
+# Nginix server AutoScaling Policy -> rNginixAutoScalingPolicy
+# Nginix server CPU SNS Topic -> rSNSTopicec2InstNginix
+# Nginix server Cloudwatch alarm -> rCPUAlarmNginix
+
+Parameters:
+
+  pKeyPair:
+    Description: Add security key
+    Type: AWS::EC2::KeyPair::KeyName
+
+  pVPC:
+    Description: Choose VPC for ec2 instance
+    Type: AWS::EC2::VPC::Id
+
+  pLatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  pSNSTopicName:
+    Description: Name of SNS Topic
+    Type: String
+
+  pSubnets:
+    Description: Subnets where ALB can send traffic
+    Type: List<AWS::EC2::Subnet::Id>
+
+  pAlarmName:
+    Description: Name of Cloudwatch alarm
+    Type: String
+
+Resources:
+
+  rSecGrpNginix:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and HTTP
+      GroupName: NGINIX-ssh-http-sec-grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: NGINIX-ssh-http-sec-grp
+      VpcId: !Ref pVPC
+  
+  rNginixTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Name: TargetGroupForASG
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref pVPC
+
+  rAppLoadBalancerNginix:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: ALBforASG
+      Scheme: internet-facing
+      SecurityGroups:
+      - !GetAtt rSecGrpNginix.GroupId
+      Subnets: !Ref pSubnets
+      Type: application  
+
+  rNginixListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions: 
+      - TargetGroupArn: !Ref rNginixTargetGroup
+        Type: forward
+      LoadBalancerArn: !Ref rAppLoadBalancerNginix
+      Port: 80
+      Protocol: HTTP
+
+  rNginixLaunchtemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref pLatestAmiId
+        InstanceType: t2.micro
+        KeyName: !Ref pKeyPair
+        SecurityGroupIds:
+          - !GetAtt rSecGrpNginix.GroupId
+        UserData: !Base64 |
+          #!/bin/bash -x
+          yum update -y
+          amazon-linux-extras install nginx1
+          systemctl start nginx
+          cd /usr/share/nginx/html
+          chmod -R 777 /usr/share/nginx/html
+          rm index.html
+          wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/index.html
+          wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/ken.jpg
+          systemctl restart nginx
+          systemctl enable nginx
+      LaunchTemplateName: NginixLaunchTemplate
+      TagSpecifications:
+        - ResourceType: launch-template
+          Tags: 
+            - Key: Name
+              Value: AK-Nginix-Server
+
+  rNginixAutoscalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      DesiredCapacity: "1"
+      HealthCheckGracePeriod: 90
+      HealthCheckType: ELB
+      LaunchTemplate:
+        LaunchTemplateId: !Ref rNginixLaunchtemplate
+        Version: "1"
+      MaxSize: "3" 
+      MinSize: "1" 
+      TargetGroupARNs:
+      - !Ref rNginixTargetGroup
+      VPCZoneIdentifier: !Ref pSubnets
+
+  rNginixAutoScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref rNginixAutoscalingGroup
+      EstimatedInstanceWarmup: 90
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification: 
+           PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 60.0
+
+  rSNSTopicec2InstNginix:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Ref pSNSTopicName
+      Subscription:
+        - Endpoint: nodehouse2@protonmail.com
+          Protocol: email
+      TopicName: !Ref pSNSTopicName
+
+  rCPUAlarmNginix:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: CPU alarm for my instance
+      AlarmName: !Ref pAlarmName
+      AlarmActions:
+        - !Ref rSNSTopicec2InstNginix
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 30
+      EvaluationPeriods: 3
+      Threshold: 90
+      ComparisonOperator: GreaterThanThreshold
+      # Dimensions:
+      # - Name: InstanceId
+      #   Value:
+      #     !Ref rNginixLaunchtemplate
+
+#Outputs:
