@@ -175,6 +175,10 @@ Resources:
         ResourcePath: '/'
         RequestInterval: 30
         FailureThreshold: 2
+      HealthCheckTags:
+          - Key: Name
+            Value: ak-Rt53-HealthCheck-1
+
 
   rARecordFailPrim:
     Type: AWS::Route53::RecordSet
@@ -199,12 +203,9 @@ Resources:
         HostedZoneId: Z3AQBSTGFYJSTF 
       Comment: A record for S3 website endpoint - Secondary record
       Failover: SECONDARY
-      # HealthCheckId: "String"
-      # HostedZoneId: "String"
-      # HostedZoneName: "String"
+      HostedZoneId: /hostedzone/Z0980289Z5HKBL3C8FMZ
       Name: www.nodehouse2.com
       SetIdentifier: Failover Scenario-secondary
-      TTL: '60'
       Type: A 
 
   rARecGeoErp:
@@ -212,7 +213,6 @@ Resources:
     Properties:
       Comment: Create geolocation record for Europe
       HostedZoneId: /hostedzone/Z0980289Z5HKBL3C8FMZ
-      HostedZoneName: nodehouse2.com
       Name: geo.nodehouse2.com
       ResourceRecords:
         - !GetAtt rRT53ec2Inst2.PublicIp
@@ -227,7 +227,6 @@ Resources:
     Properties:
       Comment: Create Geolocation record for Japan
       HostedZoneId: /hostedzone/Z0980289Z5HKBL3C8FMZ
-      HostedZoneName: nodehouse2.com
       Name: geo.nodehouse2.com
       ResourceRecords:
         - !GetAtt rRT53ec2Inst3.PublicIp
@@ -235,7 +234,6 @@ Resources:
       TTL: '60'
       Type: A  
       GeoLocation:
-        ContinentCode: AS
         CountryCode: JP
 
   rARecGeoOthers:
@@ -243,7 +241,6 @@ Resources:
     Properties:
       Comment: Create geolocation record for others
       HostedZoneId: /hostedzone/Z0980289Z5HKBL3C8FMZ
-      HostedZoneName: nodehouse2.com
       Name: geo.nodehouse2.com
       ResourceRecords:
         - !GetAtt rRT53ec2Inst3.PublicIp
@@ -251,7 +248,7 @@ Resources:
       TTL: '60'
       Type: A  
       GeoLocation:
-        ContinentCode: NA
+        # ContinentCode: NA
         CountryCode: US
-        SubdivisionCode: US-VA
+          # SubdivisionCode: US-VA
 #Outputs:
