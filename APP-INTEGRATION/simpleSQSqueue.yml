@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Create simple SQS Queue
+
+Parameters:
+  pSQSQName:
+    Description: Name of SQS queue
+    Type: String
+
+Resources:
+  rSQSQueueAK:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      MaximumMessageSize: 1024
+      MessageRetentionPeriod: 60
+      QueueName: !Ref pSQSQName
+      ReceiveMessageWaitTimeSeconds: 0
+      VisibilityTimeout: 300
+      
+#Outputs:
