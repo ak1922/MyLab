@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Creating LAMP stack with Wordpress
+
+Parameters:
+  
+  pVPC:
+    Description: VPC to launch resources into.
+    Type: AWS::EC2::VPC::Id
+
+  pKeyPair:
+    Description: EC2 instance key
+    Type: AWS::EC2::KeyPair::KeyName
+  
+  pLatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  pSubnetID1:
+    Description: Public subnet for Web server
+    Type: AWS::EC2::Subnet::Id
+
+  pSubnetID2:
+    Description: Private subnet for database server
+    Type: AWS::EC2::Subnet::Id
+
+Resources:
+  
+  rWebServerSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group to allow SSH on port 22 and HTTP on port 80
+      GroupName: Wordpress-BastionHost-SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name 
+          Value: Wordpress-BastionHost-SG
+      VpcId: !Ref pVPC
+
+  rDatabaseSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group to allow MySQL connection on port 3306 and Wordpress-BastionHost-SG for internet connection.
+      GroupName: MariaDB-SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref rWebServerSecGrp
+      Tags:
+        - Key: Name 
+          Value: MariaDB-SG
+      VpcId: !Ref pVPC
+
+  rWebServerInst:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref pLatestAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref pKeyPair
+      SecurityGroupIds:
+        - !Ref rWebServerSecGrp
+      SubnetId: !Ref pSubnetID1
+      Tags:
+        - Key: Name
+          Value: LampWebServer
+      UserData: !Base64 |
+        #!/bin/bash -x
+        yum update -y
+        amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
+        yum install -y httpd
+        systemctl start httpd
+        systemctl enable httpd
+        wget https://wordpress.org/latest.tar.gz
+        tar -xzf latest.tar.gz
+        sudo cp -r wordpress/* /var/www/html/
+        cd /var/www/html/
+        cp wp-config-sample.php wp-config.php
+        chown -R apache /var/www
+        chgrp -R apache /var/www
+        chmod 775 /var/www
+        find /var/www -type d -exec sudo chmod 2775 {} \;
+        find /var/www -type f -exec sudo chmod 0664 {} \;
+        systemctl restart httpd
+
+  rDatabaseInst:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref pLatestAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref pKeyPair
+      SecurityGroupIds:
+        - !Ref rDatabaseSecGrp
+      SubnetId: !Ref pSubnetID2
+      Tags:
+        - Key: Name
+          Value: MariaDB-Server
+      UserData: !Base64 |
+        #!/bin/bash -x
+        yum update -y
+        yum install -y mariadb-server
+        systemctl start mariadb
+        systemctl enable mariadb
+
+#Outputs:
