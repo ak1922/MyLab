@@ -249,6 +249,6 @@ Resources:
       Type: A  
       GeoLocation:
         # ContinentCode: NA
-        CountryCode: US
-          # SubdivisionCode: US-VA
+        CountryCode: 'US'
+        SubdivisionCode: 'VA'
 #Outputs:
