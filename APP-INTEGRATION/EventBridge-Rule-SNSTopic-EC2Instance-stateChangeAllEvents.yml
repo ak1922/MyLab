@@ -34,8 +34,8 @@ Resources:
         detail:
           eventSource:
             - ec2.amazonaws.com
-          eventName:
-            - "*"
+          # eventName:
+          #   - "*"
           instance-id: 
             - i-0c9e630e176ac1aff
       Name: !Ref pEventBridgeRuleName
