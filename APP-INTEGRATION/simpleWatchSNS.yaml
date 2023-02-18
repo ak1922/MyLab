@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: |
-  EC2 instance with SNS Topic and Cloudwatch alarm
+  Create EC2 instance, create security group, create SNS Topic with email subscription, create Cloudwatch alarm 
+  for when ec2 instance CPU is at 60%. Make SNS topic the target and alarm action for Cloudwatch alarm.
 
 Parameters:
 
@@ -17,19 +18,19 @@ Resources:
   rSNSTopic:
     Type: AWS::SNS::Topic
     Properties:
-      DisplayName: ec2Inst-CPU-40pct
+      DisplayName: ec2Inst-Sheridan-CPU-60pct
       Subscription:
         - Endpoint: nodehouse2@protonmail.com
           Protocol: email
-      TopicName: ec2Inst-CPU-50pct
+      TopicName: ec2Inst-Sheridan-CPU-50pct
 
   rCLDWTCHalarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmActions:
         - !Ref rSNSTopic
-      AlarmDescription: Alarm to trigger when instance CPU reaches 40%
-      AlarmName: ec2Inst-CPU-50pct-alarm
+      AlarmDescription: Alarm to trigger when instance CPU reaches 60%
+      AlarmName: ec2Inst-Sheridan-CPU-50pct-alarm
       ComparisonOperator: "GreaterThanThreshold"
       EvaluationPeriods: 1
       MetricName: "CPUUtilization"
@@ -42,7 +43,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for test ec2 instance allow SSH and HTTP 
-      GroupName: HTTPSSHGrpTest
+      GroupName: HTTPSSHGrpTest-Sheridan
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
@@ -63,6 +64,6 @@ Resources:
         - !Ref rSecGrpTest
       Tags:
         - Key: Name 
-          Value: TestProject-Instance
+          Value: Sheridan-Inst
 
 #Outputs:
