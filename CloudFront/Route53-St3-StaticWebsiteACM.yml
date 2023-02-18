@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Configuring Cloudfront with Route53, ACM and S3 as Static Website
+
+#Parameters:
+  
+  # pACMCert:
+  #   Description: Choose ACM cert for HTTPS
+  #   Type: String
+  #   Default: 0fe97b8c-4cc8-4a3c-8141-a9949738950e
+  
+  # pHostedZoneName:
+  #   Description: Domain name
+  #   Type: String
+  #   Default: nodehouse2.com
+
+Resources:
+
+  rs3StaBuck:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: PublicRead
+      BucketName: statweb1287-site
+      WebsiteConfiguration:
+        ErrorDocument: error.html
+        IndexDocument: index.html
+
+  rs3StaBuckPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rs3StaBuck
+      PolicyDocument: 
+        Id: ak-s3staticWebPol
+        Version: 2012-10-17
+        Statement:
+            - Sid: PublicReadForGetBucketObjects
+              Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: !Join 
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref rs3StaBuck
+                  - /*
+  
+Outputs:
+  StaticWebsiteAddress:
+    Description: URL form bucket properties for static website
+    Value: !GetAtt rs3StaBuck.WebsiteURL
+
+  # S3BucketSecureURL:
+  #   Description: Name of S3 bucket to hold secure website content
+  #   Value: !Join 
+  #     - ''
+  #     - - 'https://'
+  #       - !GetAtt 
+  #         - rs3StaBuck
+  #         - pHostedZoneName
