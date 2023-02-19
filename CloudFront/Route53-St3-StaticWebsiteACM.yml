@@ -2,17 +2,17 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: |
   Configuring Cloudfront with Route53, ACM and S3 as Static Website
 
-#Parameters:
+Parameters:
   
   # pACMCert:
   #   Description: Choose ACM cert for HTTPS
   #   Type: String
   #   Default: 0fe97b8c-4cc8-4a3c-8141-a9949738950e
   
-  # pHostedZoneName:
-  #   Description: Domain name
-  #   Type: String
-  #   Default: nodehouse2.com
+  pDomainName:
+    Description: Domain name
+    Type: String
+    Default: nodehouse2.com
 
 Resources:
 
@@ -42,7 +42,37 @@ Resources:
                 - - 'arn:aws:s3:::'
                   - !Ref rs3StaBuck
                   - /*
-  
+  rAkCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        DefaultRootObject: index.html
+        Aliases:
+          - nodehouse2.com
+        CNAMEs:
+          - www.nodehouse2.com
+        CacheBehaviors:
+          - AllowedMethods:
+            - GET
+            - HEAD
+            TargetOriginId: MyS3Origin
+              ViewerProtocolPolicy: redirect-to-https
+                  PathPattern: Default
+        # Comment: "String"
+        ContinuousDeploymentPolicyId: "String"
+        Enabled: false
+        HttpVersion: "String"
+        Origins:
+          - DomainName: !Ref pDomainName
+            Id: MyS3Origin
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+            
+      Tags:
+        Tags
+
 Outputs:
   StaticWebsiteAddress:
     Description: URL form bucket properties for static website

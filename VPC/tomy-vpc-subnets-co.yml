@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Create VPC with subnets, route tables, internet gateways etc
+
+#Parameters:
+  
+Resources:
+  
+  rMyVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.10.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: akVpc
+
+  rMyIgw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: akVpc-igw
+
+  rMyFirstSubnetPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      # AvailabilityZone: us-east-1a
+      AvailabilityZoneId: use1-az2
+      CidrBlock: 10.10.0.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: akvpc-AZ1a-public-subnet
+      VpcId: !Ref rMyVpc
+
+  rMySecondSubnetPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      # AvailabilityZone: us-east-1a
+      AvailabilityZoneId: use1-az2
+      CidrBlock: 10.10.1.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: akvpc-AZ1a-private-subnet
+      VpcId: !Ref rMyVpc
+
+  rMyThirdSubnetPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      # AvailabilityZone: us-east-1b
+      AvailabilityZoneId: use1-az4
+      CidrBlock: 10.10.2.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: akvpc-AZ1b-public-subnet
+      VpcId: !Ref rMyVpc
+
+  rMyForthSubnetPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      # AvailabilityZone: us-east-1b
+      AvailabilityZoneId: use1-az4
+      CidrBlock: 10.10.3.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: akvpc-AZ1b-private-subnet
+      VpcId: !Ref rMyVpc
+
+  rMyFithSubnetPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      # AvailabilityZone: us-east-1c
+      AvailabilityZoneId: use1-az6
+      CidrBlock: 10.10.4.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: akvpc-AZ1c-public-subnet
+      VpcId: !Ref rMyVpc
+
+  rMySixthSubnetPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      # AvailabilityZone: us-east-1c
+      AvailabilityZoneId: use1-az6
+      CidrBlock: 10.10.5.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: akvpc-AZ1c-private-subnet
+      VpcId: !Ref rMyVpc
+
+  rMySeventhSubnetPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      # AvailabilityZone: us-east-1d
+      AvailabilityZoneId: use1-az1
+      CidrBlock: 10.10.6.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: akvpc-AZ1d-public-subnet
+      VpcId: !Ref rMyVpc
+
+  rMyEigthSubnetPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      # AvailabilityZone: us-east-1e
+      AvailabilityZoneId: use1-az3
+      CidrBlock: 10.10.7.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: akvpc-AZ1e-private-subnet
+      VpcId: !Ref rMyVpc
+
+  myPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        !Ref rMyVpc
+      Tags:
+      - Key: Name
+        Value: akVpc-public-routeTable
+
+  myPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        !Ref rMyVpc
+      Tags:
+      - Key: Name
+        Value: akVpc-private-routeTable
+
+#Outputs:
