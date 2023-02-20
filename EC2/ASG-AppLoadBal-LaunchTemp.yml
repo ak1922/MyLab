@@ -70,8 +70,7 @@ Resources:
       Scheme: internet-facing
       SecurityGroups: 
         - !GetAtt rAsgSecGrpId.GroupId
-      Subnets: 
-        - !Ref pSubnets
+      Subnets: !Ref pSubnets
       Type: application
       Tags: 
         - Key: Name
@@ -81,7 +80,7 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties: 
       DefaultActions: 
-        - Type: foward
+        - Type: forward
           TargetGroupArn: !Ref rAsgTrgGrp
       LoadBalancerArn: !Ref rAplLodBal
       Port: 80
@@ -90,8 +89,8 @@ Resources:
   rAsgCludWtchAlm:
     Type: AWS::CloudWatch::Alarm
     Properties: 
-      # AlarmActions: 
-      #   - String
+      AlarmActions: 
+        - !Ref rAsgPol
       AlarmDescription: CloudWatch alarm for AutoScaling Group
       AlarmName: ak-asg-wtch-alarm
       ComparisonOperator: GreaterThanThreshold
@@ -150,6 +149,7 @@ Resources:
       DesiredCapacity: '1'
       # VPCZoneIdentifier: 
       #   - !Ref Subnets
+      AvailabilityZones: !GetAZs ""
       AutoScalingGroupName: ak-asg-grp
       TargetGroupARNs: 
         - !Ref rAsgTrgGrp
