@@ -4,7 +4,7 @@ Description: |
 
 Parameters:
 
-  BucketName:
+  BucketName1:
     Type: String
     Description: Name of s3 bucket 
 
@@ -14,7 +14,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: Private
-      BucketName: !Ref BucketName
+      BucketName: !Ref BucketName1
       Tags:
         - Key: "Name"
           Value: "TestProject-bucket"
