@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  The topics for this hands-on session will be AWS Lambda, function as a service (FaaS). 
+  During this Playground we will create two AWS S3 Buckets and using AWS Lambda to synchronize them.
+
+#Parameters:
+  
+Resources:
+
+  rS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: source.lambda.ak1
+      Tags:
+        - Key: "Name"
+          Value: "TestProject-bucket"
+
+  rS3Bucket2:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: source.lambda.ak2
+      Tags:
+        - Key: "Name"
+          Value: "TestProject-bucket"
+
+  rIAMRole:
+     Type: AWS::IAM::Role
+     Properties:
+       AssumeRolePolicyDocument: # Required
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+       RoleName: Lambda.S3.Replica   
+
+
+#Outputs:
