@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Purpose of the this hands-on training is to create Dashboard, Cloudwatch Alarm, configure Events option and set Logging up.
+
+Parameters:
+  
+  rLatestAMI:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  pVpcId:
+    Description: Choose VPC
+    Type: AWS::EC2::VPC::Id
+
+  pAvailabilityZone:
+    Description: Availability Zone to launch instance into
+    Type: AWS::EC2::AvailabilityZone::Name
+
+  pKeyName:
+    Description: Choose instance login key
+    Type: AWS::EC2::KeyPair::KeyName
+
+  pSubnet:
+    Description: Subnet for instance
+    Type: AWS::EC2::Subnet::Id
+
+Resources:
+  
+  rEC2CloudWatchSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for SSH and HTTP
+      GroupName: ec2CloudWatch-Sec-Grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: ec2CloudWatch-Sec-Grp
+      VpcId: !Ref pVpcId
+
+  rEC2CloudWatchInst:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: !Ref pAvailabilityZone
+      ImageId: !Ref rLatestAMI
+      KeyName: !Ref pKeyName
+      InstanceType: t2.micro
+      Monitoring: true
+      SecurityGroupIds:
+        - !Ref rEC2CloudWatchSecGrp
+      SubnetId: !Ref pSubnet
+      Tags:
+        - Key: Name
+          Value: EC2CloudWatch-Inst
+      UserData: !Base64 |
+        #! /bin/bash -x
+        yum update -y
+        amazon-linux-extras install nginx1.12
+        chkconfig nginx on
+        cd /usr/share/nginx/html
+        chmod o+w /usr/share/nginx/html
+        rm index.html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/index.html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/ken.jpg
+        service nginx start
+
+  rEC2CloudWatchSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Endpoint: nodehouse2@protonmail.com
+        Protocol: email
+      DisplayName: ec2CloudWatch-snsTopic
+
+  rEC2CloudWatchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref rEC2CloudWatchSNSTopic
+      AlarmDescription: Send email notification when CPU gets above 60pct
+      AlarmName: ec2CloudWatch-Alarm
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Period: 30
+      Statistic: Average 
+      Threshold: 60
+
+  rEC2CloudWatchIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - ec2:Start*
+            - ec2:Stop*
+            Resource: "*"
+      Description: Go to IAM console a create Policy named "start-stop-instance"
+      Path: /
+      RoleName: EC2CloudWatch-IAM-Role
+
+
+
+Outputs:
+  outPutec2URL:
+    Description: URL for ec2 instance
+    Value: !GetAtt rEC2CloudWatchInst.PublicDnsName
