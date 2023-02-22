@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  How to attach WAF Web ACLs to an Application Load Balancer and prevent undesired traffic getting through to servers behind the WAF.
+
+Parameters:
+  
+  pSecurityGroup:
+    Description: Security group for instance
+    Type: String
+    Default: sg-08b66de59cc196c1b
+
+  pKeyName:
+    Description: Choose instance login key
+    Type: AWS::EC2::KeyPair::KeyName
+
+  rLatestAMI:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  pVpcId:
+    Description: Choose VPC for resources
+    Type: AWS::EC2::VPC::Id
+
+  pSubnets:
+    Description: List of default VPC subnets
+    Type: List<AWS::EC2::Subnet::Id>
+
+Resources:
+
+  rEC2AgentInst:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref rLatestAMI
+      KeyName: !Ref pKeyName
+      InstanceType: t2.micro
+      SecurityGroupIds: 
+        - !Ref pSecurityGroup
+      Tags:
+        - Key: Name
+          Value: WAF-Web-Server
+      UserData: !Base64 |
+        #!/bin/bash -x
+
+        #update os
+        yum update -y
+
+        #install apache server
+        yum install -y httpd
+
+        # create a custom index.html file
+        chmod -R 777 /var/www/html
+        echo "<html>
+        <head>
+            <title> Web Server Running in AWS</title>
+        </head>
+        <body>
+            <h1>This web server is protected by AWS WAF</h1>
+        </body>
+        </html>" > /var/www/html/index.html
+
+        # start apache server
+        systemctl start httpd
+        systemctl enable httpd
+
+  rALBSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Load balance and ASG
+      GroupName: WAF-Srv-Sec-Grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp 
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name 
+          Value: WAF-Srv-Sec-Grp
+      VpcId: !Ref pVpcId
+
+  rTargetGroupWAF:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthyThresholdCount: 2
+      Name: ALB-Target-Group-WAF
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref pVpcId
+
+  rWAFAppLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: WAF-ALB
+      Scheme: internet-facing
+      SecurityGroups:
+      - !GetAtt rALBSecGrp.GroupId
+      Subnets: !Ref pSubnets
+      Type: application
+
+  rrWAFAppLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - TargetGroupArn: !Ref rTargetGroupWAF
+        Type: forward
+      LoadBalancerArn: !Ref rWAFAppLoadBalancer 
+      Port: 80
+      Protocol: HTTP
+
+  rWAFWebAcl:
+    Type: AWS::WAF::WebACL
+    Properties:
+      DefaultAction:
+        Type: Allow
+      MetricName: MyWAFTest
+      Name: WAFTest
+
+
+Outputs:
+  outPutec2URL:
+      Description: URL for ec2 instance
+      Value: !GetAtt rEC2AgentInst.PublicDnsName
+
+  outALBURL:
+    Description: URL for ec2 instance
+    Value: !GetAtt rWAFAppLoadBalancer.DNSName
