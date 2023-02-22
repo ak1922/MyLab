@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Configure Logging with Agent
+
+Parameters:
+  pKeyName:
+    Description: Choose instance login key
+    Type: AWS::EC2::KeyPair::KeyName
+
+  pSubnet:
+    Description: Subnet for instance
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-078cb67f5f043fa5c
+
+  pSecurityGroup:
+    Description: Security group for instance
+    Type: String
+    Default: sg-08b66de59cc196c1b
+
+  rLatestAMI:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+Resources:
+
+  rEC2AgentInst:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref rLatestAMI
+      KeyName: !Ref pKeyName
+      InstanceType: t2.micro
+      SecurityGroupIds: 
+        - !Ref pSecurityGroup
+      SubnetId: !Ref pSubnet
+      Tags:
+        - Key: Name
+          Value: EC2-CWAgent-Inst
+      UserData: !Base64 |
+        #! /bin/bash -x
+        yum update -y
+        amazon-linux-extras install nginx1.12
+        chkconfig nginx on
+        cd /usr/share/nginx/html
+        chmod o+w /usr/share/nginx/html
+        rm index.html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/index.html
+        wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/ken.jpg
+        service nginx start
+        sudo yum install -y awslogs
+        sudo systemctl start awslogsd
+        sudo systemctl enable awslogsd.service
+
+  rIAMRoleCloudWatch:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Grant full access to cloudwatch logs
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - sts:AssumeRole
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+      Policies:
+        - PolicyName: Claruscloudwatchlog_policy-ak
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: logs:*
+                Resource: '*'
+      RoleName: Claruscloudwatchlog-role-ak
+      
+  rEC2AgentInstInstanceProfile:
+      Type: 'AWS::IAM::InstanceProfile'
+      Properties:
+        Path: /
+        Roles:
+          - !Ref rIAMRoleCloudWatch
+
+Outputs:
+    outPutec2URL:
+      Description: URL for ec2 instance
+      Value: !GetAtt rEC2AgentInst.PublicDnsName
