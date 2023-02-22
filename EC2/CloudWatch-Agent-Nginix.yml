@@ -3,6 +3,7 @@ Description: |
   Configure Logging with Agent
 
 Parameters:
+  
   pKeyName:
     Description: Choose instance login key
     Type: AWS::EC2::KeyPair::KeyName
