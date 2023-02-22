@@ -71,13 +71,19 @@ Resources:
         wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/ken.jpg
         service nginx start
 
+  # rEC2CloudWatchDashboard:
+  #   Type: AWS::CloudWatch::Dashboard
+  #   Properties:
+  #     DashboardBody: "String" # Required
+  #     DashboardName: Clarusway_Dashboard
+
   rEC2CloudWatchSNSTopic:
     Type: AWS::SNS::Topic
     Properties:
       Subscription:
       - Endpoint: nodehouse2@protonmail.com
         Protocol: email
-      DisplayName: ec2CloudWatch-snsTopic
+      TopicName: ec2clouDWatch-Topic
 
   rEC2CloudWatchAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -95,11 +101,11 @@ Resources:
       Statistic: Average 
       Threshold: 60
 
-  rEC2CloudWatchIAMRole:
-    Type: AWS::IAM::Role
+  rEC2CloudWatchIamPolicy:
+    Type: AWS::IAM::Policy
     Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+      PolicyDocument:
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Action:
@@ -107,18 +113,46 @@ Resources:
             - logs:CreateLogStream
             - logs:PutLogEvents
             Resource: arn:aws:logs:*:*:*
-          - Effect: Allow
-            Action:
-            - ec2:Start*
-            - ec2:Stop*
-            Resource: "*"
-      Description: Go to IAM console a create Policy named "start-stop-instance"
-      Path: /
-      RoleName: EC2CloudWatch-IAM-Role
+      PolicyName: start-stop-instance-policy
+      Roles:
+        - !Ref rEC2CloudWatchIamRole
+
+  rEC2CloudWatchIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - sts:AssumeRole
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+      Description: Allow ec2 access to logs
+      RoleName: start-stop-instance-Role
 
 
+  rStopInstLambda:
+    Type: AWS::Lambda::Function
+    Properties: 
+      Description: Lambda code to stop instances
+      FunctionName: stopInstance_func
+      Role: !GetAtt rEC2CloudWatchIamRole.Arn
+      Runtime: python3.8
+      Handler: stopInstance_func.handler
+      Code: 
+        ZipFile: |
+          import boto3
+          region = 'us-east-1'
+          instances = ['i-0c9e630e176ac1aff']#DON'T FORGET TO CHANGE ME
+          ec2 = boto3.client('ec2', region_name=region)
 
+          def lambda_handler(event, context):
+              ec2.stop_instances(InstanceIds=instances)
+              print('stopped your instances: ' + str(instances))
+        
 Outputs:
-  outPutec2URL:
-    Description: URL for ec2 instance
-    Value: !GetAtt rEC2CloudWatchInst.PublicDnsName
+    outPutec2URL:
+      Description: URL for ec2 instance
+      Value: !GetAtt rEC2CloudWatchInst.PublicDnsName
