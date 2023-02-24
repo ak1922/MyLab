@@ -1,4 +1,5 @@
-AWSTemplateFormatVersion: 2010-09-09
+AWSTemplateFormatVersion: "2010-09-09"
+
 Description: |
   Auto Scaling, step scaling with launch template and sns
 
@@ -20,13 +21,17 @@ Parameters:
     Description: Subnets where EC2 instances are launched
     Type: List<AWS::EC2::Subnet::Id>
 
+  pEmail:
+    Description: Email for SNS Topic subscription
+    Type: String
+
 Resources:
 
   rSimpScalWebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group to allow SSH and HTTP
-      GroupName: STSP-Web-Sec-Grp
+      GroupName: SIMPScal-Web-Sec-Grp
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
@@ -38,14 +43,14 @@ Resources:
           CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
-          Value: STSP-Web-Sec-Grp
+          Value: SIMPScal-Web-Sec-Grp
       VpcId: !Ref pVpsId
   
   rSimpScalAppLoadBalSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group to allow HTTP
-      GroupName: STSP-AppLoadBal-Sec-Grp
+      GroupName: SIMPScal-AppLoadBal-Sec-Grp
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -53,7 +58,7 @@ Resources:
           CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
-          Value: STSP-AppLoadBal-Sec-Grp
+          Value: SIMPScal-AppLoadBal-Sec-Grp
       VpcId: !Ref pVpsId
 
   rSimpScalLaunchTemplate:
@@ -115,7 +120,7 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 3
       HealthyThresholdCount: 2
-      Name: STSPTargetGroup
+      Name: SIMPScalTargetGroup
       Port: 80
       Protocol: HTTP
       ProtocolVersion: HTTP1
@@ -123,21 +128,21 @@ Resources:
       UnhealthyThresholdCount: 2
       Tags:
         - Key: Name
-          Value: STSPTargetGroup
+          Value: SIMPScalTargetGroup
       VpcId: !Ref pVpsId
 
   rSimpScalLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       IpAddressType: ipv4
-      Name: STSPLoadBalancer
+      Name: SIMPScalLoadBalancer
       Scheme: internet-facing
       SecurityGroups:
         - !GetAtt rSimpScalAppLoadBalSecurityGroup.GroupId
       Subnets: !Ref pSubnets
       Tags:
         - Key: Name
-          Value: STSPLoadBalancer
+          Value: SIMPScalLoadBalancer
       Type: application
 
   rSimpScalLoadBalancerListener:
@@ -153,7 +158,7 @@ Resources:
   rSimpScalAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: STSPAutoScalingGroup
+      AutoScalingGroupName: SIMPScalAutoScalingGroup
       AvailabilityZones: !GetAZs ''
       DesiredCapacity: '2'
       HealthCheckType: ELB
@@ -167,10 +172,59 @@ Resources:
 
   rSimpScalPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
-    Properties:
+    Properties: 
       AutoScalingGroupName: !Ref rSimpScalAutoScalingGroup
-      PolicyType: TargetTrackingScaling
-      TargetTrackingConfiguration: 
-        PredefinedMetricSpecification: 
-          PredefinedMetricType: ASGAverageCPUUtilization
-        TargetValue: 50.0
+      PolicyType: SimpleScaling
+      AdjustmentType: ChangeInCapacity
+      ScalingAdjustment: '1'
+
+  rSimpScalSNSTopic1:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: SIMPScal-SNS-Topic-HighCPU
+      Subscription:
+        - Endpoint: !Ref pEmail
+          Protocol: email
+      TopicName: SIMPScalSNSTopicHighCPU
+      Tags:
+        - Key: Name
+          Value: SIMPScal-SNS-Topic-HighCPU
+
+  rSimpScalSNSTopic2:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: SIMPScal-SNS-Topic-NormalCPU
+      Subscription:
+        - Endpoint: !Ref pEmail
+          Protocol: email
+      TopicName: SIMPScalSNSTopicNormalCPU
+      Tags:
+        - Key: Name
+          Value: SIMPScal-SNS-Topic-NormalCPU
+
+  rSimpScalAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref rSimpScalSNSTopic1
+      AlarmDescription: Alarm for Simple auto scaling group
+      AlarmName: SIMPScal-Alarm
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref rSimpScalAutoScalingGroup
+      EvaluationPeriods: 1
+      MetricName: 'CPUUtilization'
+      Namespace: AWS/EC2
+      OKActions:
+        - !Ref rSimpScalSNSTopic2
+      Period: 10
+      Statistic: Average 
+      Threshold: 50
+
+Outputs:
+  AppLoadBalURL:
+    Value: !Join 
+      -  ''
+      - -  'http://'
+        -  !GetAtt rSimpScalLoadBalancer.DNSName
