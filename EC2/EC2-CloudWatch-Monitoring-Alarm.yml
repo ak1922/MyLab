@@ -176,18 +176,23 @@ Resources:
               ec2.start_instances(InstanceIds=instances)
               print('started your instances: ' + str(instances))   
 
-  # rEC2CloudWatchEventRule:
-  #   Type: AWS::Scheduler::Schedule
-  #   Properties: 
-  #     Description: Event to call Lambda to stop ec2 instance
-  #     FlexibleTimeWindow: 
-  #       Mode: 'OFF'
-  #     Name: cw_event_stop
-  #     ScheduleExpression: cron(00 19 * * * *)
-  #     State: 'ENABLED' 
-  #     Target: 
-  #     - Arn: !GetAtt rStopInstLambda.Arn
-  #       RoleArn: !GetAtt rEC2CloudWatchIamPolicy.Arn
+  rEC2CloudWatchEventRule:
+    Type: AWS::Scheduler::Schedule
+    Properties: 
+      Description: Event to call Lambda to stop ec2 instance
+      FlexibleTimeWindow: 
+        Mode: 'OFF'
+      Name: cw_event_stop
+      ScheduleExpression: cron(00 19 * * * *)
+      State: 'ENABLED' 
+      Target: 
+        - 
+          Arn: 
+            Fn::GetAtt: 
+              - "rStopInstLambda"
+              - "Arn"
+          Id: "TargetFunctionV1"
+          # RoleArn: !GetAtt rEC2CloudWatchIamPolicy.Arn
 
 
 

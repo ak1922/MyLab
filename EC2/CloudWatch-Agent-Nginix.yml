@@ -74,12 +74,12 @@ Resources:
                 Resource: '*'
       RoleName: Claruscloudwatchlog-role-ak
       
-  rEC2AgentInstInstanceProfile:
-      Type: 'AWS::IAM::InstanceProfile'
-      Properties:
-        Path: /
-        Roles:
-          - !Ref rIAMRoleCloudWatch
+  # rEC2AgentInstInstanceProfile:
+  #     Type: 'AWS::IAM::InstanceProfile'
+  #     Properties:
+  #       Path: /
+  #       Roles:
+  #         - !Ref rIAMRoleCloudWatch
 
 Outputs:
     outPutec2URL:
