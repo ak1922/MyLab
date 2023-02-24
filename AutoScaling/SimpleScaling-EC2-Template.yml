@@ -170,7 +170,7 @@ Resources:
     Properties:
       AutoScalingGroupName: !Ref rSimpScalAutoScalingGroup
       PolicyType: TargetTrackingScaling
-  TargetTrackingConfiguration: 
-    PredefinedMetricSpecification: 
-      PredefinedMetricType: ASGAverageCPUUtilization
-    TargetValue: 50.0
+      TargetTrackingConfiguration: 
+        PredefinedMetricSpecification: 
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 50.0
