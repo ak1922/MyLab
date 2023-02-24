@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Auto Scaling, step scaling with launch template and sns
+
+Parameters:
+
+  pVpsId:
+    Description: Choose VPC for resources
+    Type: AWS::EC2::VPC::Id
+
+  pAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  pKeyPair:
+    Description: KeyPair Name
+    Type: AWS::EC2::KeyPair::KeyName
+
+  pSubnets:
+    Description: Subnets where EC2 instances are
+    Type: List<AWS::EC2::Subnet::Id>
+
+Resources:
+
+  rStepScalWebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group to allow SSH and HTTP
+      GroupName: STSP-Web-Sec-Grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: STSP-Web-Sec-Grp
+      VpcId: !Ref pVpsId
+  
+  rStepScalAppLoadBalSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group to allow HTTP
+      GroupName: STSP-AppLoadBal-Sec-Grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: STSP-AppLoadBal-Sec-Grp
+      VpcId: !Ref pVpsId
+
+  rStepScalLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref pAmiId
+        InstanceType: t2.micro
+        KeyName: !Ref pKeyPair
+        SecurityGroupIds:
+          - !GetAtt rStepScalWebSecurityGroup.GroupId
+        UserData: !Base64 |
+          #!/bin/bash -x
+          #update os
+          yum update -y
+          #install apache server
+          yum install -y httpd
+          # get private ip address of ec2 instance using instance metadata
+          TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` \
+          && PRIVATE_IP=`curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/local-ipv4`
+          # get public ip address of ec2 instance using instance metadata
+          TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` \
+          && PUBLIC_IP=`curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4` 
+          # get date and time of server
+          DATE_TIME=`date`
+          # set all permissions
+          chmod -R 777 /var/www/html
+          # create a custom index.html file
+          echo "<html>
+          <head>
+              <title> Application Load Balancer</title>
+          </head>
+          <body>
+              <h1>Testing Application Load Balancer</h1>
+              <h2>Congratulations! You have created an instance from Launch Template</h2>
+              <h3>This web server is launched from the launch template by AK</h3>
+              <p>This instance is created at <b>$DATE_TIME</b></p>
+              <p>Private IP address of this instance is <b>$PRIVATE_IP</b></p>
+              <p>Public IP address of this instance is <b>$PUBLIC_IP</b></p>
+          </body>
+          </html>" > /var/www/html/index.html
+          # start apache server
+          systemctl start httpd
+          systemctl enable httpd
+      LaunchTemplateName: StepScaleLaunchTemp
+      TagSpecifications:
+        - ResourceType: launch-template 
+          Tags:
+            - Key: Name 
+              Value: StepScaleLaunchTemp
+      VersionDescription: Launch template for step scaling
+
+  rStepScalTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 15
+      HealthCheckPath: /
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 3
+      HealthyThresholdCount: 2
+      Name: STSPTargetGroup
+      Port: 80
+      Protocol: HTTP
+      ProtocolVersion: HTTP1
+      TargetType: instance
+      UnhealthyThresholdCount: 2
+      Tags:
+        - Key: Name
+          Value: STSPTargetGroup
+      VpcId: !Ref pVpsId
+
+  rStepScalLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: STSPLoadBalancer
+      Scheme: internet-facing
+      SecurityGroups:
+        - !GetAtt rStepScalAppLoadBalSecurityGroup.GroupId
+      Subnets: !Ref pSubnets
+      Tags:
+        - Key: Name
+          Value: STSPLoadBalancer
+      Type: application
+
+  rStepScalLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions: 
+        - Type: forward 
+          TargetGroupArn: !Ref rStepScalTargetGroup
+      LoadBalancerArn: !Ref rStepScalLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  rStepScalAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: STSPAutoScalingGroup
+      AvailabilityZones: !GetAZs ''
+      DesiredCapacity: '2'
+      HealthCheckType: ELB
+      LaunchTemplate:
+        LaunchTemplateId: !Ref rStepScalLaunchTemplate
+        Version: !GetAtt rStepScalLaunchTemplate.LatestVersionNumber
+      MaxSize: '4'
+      MinSize: '1' 
+      TargetGroupARNs:
+        - !Ref rStepScalTargetGroup
+
+  rStepScalScalingPolicy1:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties: 
+      AutoScalingGroupName: !Ref rStepScalAutoScalingGroup
+      PolicyType: StepScaling
+      AdjustmentType: ChangeInCapacity
+      MetricAggregationType: Average
+      EstimatedInstanceWarmup: 60
+      StepAdjustments: 
+        - MetricIntervalLowerBound: 0
+          MetricIntervalUpperBound: 15
+          ScalingAdjustment: 1
+        - MetricIntervalLowerBound: 15
+          MetricIntervalUpperBound: 25
+          ScalingAdjustment: 2
+        - MetricIntervalLowerBound: 25
+          ScalingAdjustment: 3
+
+  rStepScalScalingPolicy2:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties: 
+      AutoScalingGroupName: !Ref rStepScalAutoScalingGroup
+      PolicyType: StepScaling
+      AdjustmentType: ChangeInCapacity
+      MetricAggregationType: Average
+      EstimatedInstanceWarmup: 60
+      StepAdjustments:
+        - MetricIntervalUpperBound: 10
+          ScalingAdjustment: -1
+# #Outputs:
