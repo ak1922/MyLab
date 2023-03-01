@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Attach WAF Web ACLs to an Application Load Balancer
+
+Parameters:
+  
+  pVpcId:
+    Description: Choose default VPC
+    Type: AWS::EC2::VPC::Id
+
+  pAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  pKeyPair:
+    Description: KeyPair Name
+    Type: AWS::EC2::KeyPair::KeyName
+
+  pSubnets:
+    Description: List of subnets from default AZ
+    Type: List<AWS::EC2::Subnet::Id>
+
+Resources:
+  
+  rAppLodBalWAFSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group to allow SSH, HTTP and HTTPS from anywhere
+      GroupName: App-LodBal-Sec-Grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0 
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0                   
+      Tags:
+        - Key: Name
+          Value: App-LodBal-WAF-Sec-Grp
+      VpcId: !Ref pVpcId
+
+  rAppLodBalWAFWebSrv:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref pAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref pKeyPair
+      SecurityGroupIds:
+        - !Ref rAppLodBalWAFSecGrp
+      Tags:
+        - Key: Name
+          Value: App-LodBal-WAF-Web-Srv
+      UserData: !Base64 |
+        #!/bin/bash -x
+
+        #update os
+        yum update -y
+
+        #install apache server
+        yum install -y httpd
+
+        # create a custom index.html file
+        chmod -R 777 /var/www/html
+        echo "<html>
+        <head>
+            <title> Web Server Running in AWS</title>
+        </head>
+        <body>
+            <h1>This web server is protected by AWS WAF</h1>
+        </body>
+        </html>" > /var/www/html/index.html
+
+        # start apache server
+        systemctl start httpd
+        systemctl enable httpd
+
+  rAppLodBalWAFTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 5
+      HealthCheckPath: '/'
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 2
+      HealthyThresholdCount: 2
+      IpAddressType: ipv4 
+      Matcher:
+        HttpCode: '200'
+      Name: App-LodBal-TargGrp
+      Port: 80
+      Protocol: HTTP
+      ProtocolVersion: HTTP1
+      Tags:
+        - Key: Name
+          Value: App-LodBal-WAF-TargGrp
+      UnhealthyThresholdCount: 2
+      TargetType: instance
+      Targets: 
+        - Id: !Ref rAppLodBalWAFWebSrv
+      VpcId: !Ref pVpcId
+
+  rAppLodBalWAFLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: App-LodBal-WAF-LodBal
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref rAppLodBalWAFSecGrp
+      Subnets: !Ref pSubnets
+      Tags:
+        - Key: Name
+          Value: App-LodBal-WAF-LodBal
+      Type: application  
+
+  rAppLodBalWAFListener1:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Certificates: 
+        - CertificateArn: arn:aws:acm:us-east-1:355740888737:certificate/0fe97b8c-4cc8-4a3c-8141-a9949738950e
+      DefaultActions:
+        - Type: forward 
+          TargetGroupArn: !Ref rAppLodBalWAFTargetGroup
+      LoadBalancerArn: !Ref rAppLodBalWAFLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+
+  rAppLodBalWAFListener2:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward 
+          TargetGroupArn: !Ref rAppLodBalWAFTargetGroup
+      LoadBalancerArn: !Ref rAppLodBalWAFLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+Outputs:
+  AppLoadBalURL:
+    Value: !Join 
+      -  ''
+      - -  'https://'
+        -  !GetAtt rAppLodBalWAFLoadBalancer.DNSName
