@@ -1,0 +1,194 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Create VPC and configure VPC with components
+
+Parameters:
+
+  pAZ1:
+    Description: AZ for first subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1a
+
+  pAZ2:
+    Description: AZ for second subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1b
+
+  pAZ3: 
+    Description: AZ for third subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1c
+
+Resources:
+  
+  rVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.7.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: cla-vpc
+
+  rSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAZ1
+      CidrBlock: 10.7.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cla-az1a-public-subnet
+      VpcId: !Ref rVpc
+
+  rSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAZ1
+      CidrBlock: 10.7.2.0/24
+      Tags:
+        - Key: Name
+          Value: cla-az1a-private-subnet
+      VpcId: !Ref rVpc 
+
+  rSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAZ2
+      CidrBlock: 10.7.4.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cla-az1b-public-subnet
+      VpcId: !Ref rVpc
+
+  rSubnet4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAZ2
+      CidrBlock: 10.7.5.0/24
+      Tags:
+        - Key: Name
+          Value: cla-az1b-private-subnet
+      VpcId: !Ref rVpc 
+
+  rSubnet5:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAZ3
+      CidrBlock: 10.7.7.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cla-az1c-public-subnet
+      VpcId: !Ref rVpc
+
+  rSubnet6:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAZ3
+      CidrBlock: 10.7.8.0/24
+      Tags:
+        - Key: Name
+          Value: cla-az1c-private-subnet
+      VpcId: !Ref rVpc 
+
+  rPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref rVpc
+      Tags:
+      - Key: Name
+        Value: clavpc-Public-RT
+
+  rPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref rVpc
+      Tags:
+      - Key: Name
+        Value: clavpc-Private-RT
+
+  rSubnetTableAss1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref rPublicRouteTable
+      SubnetId: !Ref rSubnet1
+
+  rSubnetTableAss2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref rPrivateRouteTable
+      SubnetId: !Ref rSubnet2
+
+  rSubnetTableAss3:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref rPublicRouteTable
+      SubnetId: !Ref rSubnet3
+
+  rSubnetTableAss4:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref rPrivateRouteTable
+      SubnetId: !Ref rSubnet4
+
+  rSubnetTableAss5:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref rPublicRouteTable
+      SubnetId: !Ref rSubnet5
+
+  rSubnetTableAss6:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref rPrivateRouteTable
+      SubnetId: !Ref rSubnet6
+
+  rVPCInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: cla-vpc-IGW
+
+  rVPCIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref rVPCInternetGateway
+      VpcId: !Ref rVpc
+
+  rVPCIGWRoute:
+    Type: AWS::EC2::Route
+    Properties:
+       RouteTableId: !Ref rPublicRouteTable
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId: !Ref rVPCInternetGateway
+
+  rVPCEIP:
+    Type: AWS::EC2::EIP
+    Properties: 
+      Domain: vpc
+      Tags: 
+        - Key: Name
+          Value: cla-vpc-EIP
+
+  rVPCNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties: 
+      AllocationId: !GetAtt rVPCEIP.AllocationId
+      SubnetId: !Ref rSubnet1
+      Tags: 
+        - Key: Name
+          Value: vla-vpc-NGW
+
+  rVPCNGWRoute:
+    Type: AWS::EC2::Route
+    # DependsOn: rVPCNatGateway
+    Properties:
+       RouteTableId: !Ref rPrivateRouteTable
+       DestinationCidrBlock: 0.0.0.0/0
+       NatGatewayId: !Ref rVPCNatGateway
+#Outputs:
