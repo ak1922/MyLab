@@ -124,7 +124,7 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       Certificates: 
-        - CertificateArn: arn:aws:acm:us-east-1:355740888737:certificate/0fe97b8c-4cc8-4a3c-8141-a9949738950e
+        - CertificateArn: arn:aws:acm:us-east-1:355740888737:certificate/58496ee5-1ea8-4f1f-99e3-67a5fb7f5cfd
       DefaultActions:
         - Type: forward 
           TargetGroupArn: !Ref rAppLodBalWAFTargetGroup
@@ -141,6 +141,38 @@ Resources:
       LoadBalancerArn: !Ref rAppLodBalWAFLoadBalancer
       Port: 80
       Protocol: HTTP
+
+  rAppLodBalWAF:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      DefaultAction:
+        Allow: {}
+      Description: WebACL for LoadBalancer
+      Name: App-LodBal-WAF
+      Scope: REGIONAL
+      Tags:
+        - Key: Name
+          Value: App-LodBal-WAF
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: false
+        MetricName: All
+        SampledRequestsEnabled: true
+
+  rAppLodBalWAFIPSet:
+    Type: 'AWS::WAFv2::IPSet'
+    Properties:
+      Description: WebACL IP rule set
+      Name: App-LodBal-WAF-IPRule1
+      Scope: REGIONAL
+      IPAddressVersion: IPV4
+      Addresses:
+        - 73.201.125.32/32
+
+  rAppLodBalWAFAss:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties: 
+      ResourceArn: !Ref rAppLodBalWAFLoadBalancer
+      WebACLArn: !GetAtt rAppLodBalWAF.Arn
 
 Outputs:
   AppLoadBalURL:
