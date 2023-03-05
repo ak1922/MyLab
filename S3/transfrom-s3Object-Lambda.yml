@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Create s3 bucket, use Lambda function to transform content
+
+#Parameters:
+  
+Resources:
+  
+  rS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: ak-lambda-tranf-01
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+        - Key: Name
+          Value: s3LambdaTransform
+
+  rS3AccessPoint:
+    Type: AWS::S3::AccessPoint
+    Properties: 
+      Bucket: !Ref rS3Bucket
+      Name: !Join [ "-", [ !Ref rS3Bucket, "ap" ] ]
+
+
+Outputs:
+  rS3AccessPointName:
+    Description: Name of s3 access point
+    Value: !GetAtt rS3AccessPoint.Name
