@@ -131,6 +131,20 @@ Resources:
       Description: Allow ec2 access to logs
       RoleName: start-stop-instance-Role
 
+  rEventBridgeAssumeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - sts:AssumeRole
+          Principal:
+            Service:
+            - scheduler.amazonaws.com
+      Description: Allow allow eventbridge to assume role
+      RoleName: evBridgeAssume-Role
 
   rStopInstLambda:
     Type: AWS::Lambda::Function
@@ -177,11 +191,11 @@ Resources:
       FlexibleTimeWindow: 
         Mode: 'OFF'
       Name: cw_event_stop
-      ScheduleExpression: cron(00 19 * * * *)
+      ScheduleExpression: cron(00 19 * * ? *)
       State: 'ENABLED' 
       Target: 
           Arn: !GetAtt rStopInstLambda.Arn
-          RoleArn: !GetAtt rEC2CloudWatchIamRole.Arn
+          RoleArn: !GetAtt rEventBridgeAssumeRole.Arn
 
 
 
