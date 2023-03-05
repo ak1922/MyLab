@@ -164,7 +164,7 @@ Resources:
       FunctionName: startInstance_func
       Role: !GetAtt rEC2CloudWatchIamRole.Arn
       Runtime: python3.9
-      Handler: startInstance_func.handler
+      Handler: startInstance_func.lambda_handler
       Code: 
         ZipFile: |  
           import boto3
@@ -186,13 +186,8 @@ Resources:
       ScheduleExpression: cron(00 19 * * * *)
       State: 'ENABLED' 
       Target: 
-        - 
-          Arn: 
-            Fn::GetAtt: 
-              - "rStopInstLambda"
-              - "Arn"
-          Id: "TargetFunctionV1"
-          # RoleArn: !GetAtt rEC2CloudWatchIamPolicy.Arn
+          Arn: !GetAtt rStopInstLambda.Arn
+          RoleArn: !GetAtt rEC2CloudWatchIamRole.Arn
 
 
 
