@@ -27,6 +27,37 @@ Resources:
       Name: !Join [ "-", [ !Ref rS3Bucket, "ap" ] ]
 
 
+  rIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: IAM role for Lambda to s3
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - sts:AssumeRole
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+      Policies:
+        - PolicyName: s3LambdaTransformPolicy
+          PolicyDocument: 
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - s3-object-lambda:WriteGetObjectResponse
+              Resource: "*"
+      RoleName: s3LambdaTransformRole
+      Tags:
+        - Key: Name
+          Value: s3LambdaTransform
+
+
 Outputs:
   rS3AccessPointName:
     Description: Name of s3 access point
