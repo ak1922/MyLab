@@ -71,12 +71,6 @@ Resources:
         wget https://raw.githubusercontent.com/awsdevopsteam/route-53/master/ken.jpg
         service nginx start
 
-  # rEC2CloudWatchDashboard:
-  #   Type: AWS::CloudWatch::Dashboard
-  #   Properties:
-  #     DashboardBody: "String" # Required
-  #     DashboardName: Clarusway_Dashboard
-
   rEC2CloudWatchSNSTopic:
     Type: AWS::SNS::Topic
     Properties:
