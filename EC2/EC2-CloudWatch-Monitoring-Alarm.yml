@@ -153,7 +153,7 @@ Resources:
       FunctionName: stopInstance_func
       Role: !GetAtt rEC2CloudWatchIamRole.Arn
       Runtime: python3.9
-      Handler: stopInstance_func.handler
+      Handler: stopInstance_func.lambda_handler
       Code: 
         ZipFile: |
           import boto3
