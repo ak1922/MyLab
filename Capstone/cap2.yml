@@ -1,0 +1,608 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Clarusway Blog Page Application aims to deploy blog application as a web application written Django Framework on AWS Cloud Infrastructure
+
+Parameters:
+
+  pAvZone1:
+    Description: First availability zone
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1c
+
+  pAvZone2:
+    Description: Second availability zone
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1d
+
+  pDBUserName:
+    Description: Endter username for RDS DB instance
+    Type: String
+
+  pDBPassword:
+    Description: Endter password for RDS DB instance
+    Type: String
+    NoEcho: true
+
+  pKeyPair:
+    Description: KeyPair Name
+    Type: AWS::EC2::KeyPair::KeyName
+
+  pEmail:
+    Description: Email for SNS Topic subscription
+    Type: String
+
+
+  pDomainName:
+    Description: Full sub-domain for website
+    Type: String
+    Default: nodehouse2.com
+
+  pHostedZoneId:
+    Description: Hosted Zone ID for public hosted zone
+    Type: AWS::Route53::HostedZone::Id
+
+Resources: 
+
+  rCapstoneVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.90.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: capstone-VPC
+
+  rCapstoneSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAvZone1
+      CidrBlock: 10.90.10.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: capstone-public-subnet-1C
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstoneSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAvZone1
+      CidrBlock: 10.90.11.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: capstone-private-subnet-1C
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstoneSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAvZone2
+      CidrBlock: 10.90.20.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: capstone-public-subnet-1D
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstoneSubnet4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAvZone2
+      CidrBlock: 10.90.21.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: capstone-private-subnet-1D
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstoneIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: capstone-IGW
+
+  rCapstoneIGWVPCAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref rCapstoneIGW
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstonePublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: capstone-Public-RT
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstonePrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: capstone-Private-RT
+      VpcId: !Ref rCapstoneVPC
+
+  rPublicSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref rCapstonePublicRouteTable
+      SubnetId: !Ref rCapstoneSubnet1
+
+  rPublicSubnetRouteTableAssociation3:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref rCapstonePublicRouteTable
+      SubnetId: !Ref rCapstoneSubnet3
+
+  rCapstoneIGWRoute:  
+    Type: AWS::EC2::Route
+    Properties:
+       RouteTableId: !Ref rCapstonePublicRouteTable
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId: !Ref rCapstoneIGW
+
+  rPrivateSubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref rCapstonePrivateRouteTable
+      SubnetId: !Ref rCapstoneSubnet2
+
+  rPrivateSubnetRouteTableAssociation4:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref rCapstonePrivateRouteTable
+      SubnetId: !Ref rCapstoneSubnet4
+
+  rCapstoneVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties: 
+      PolicyDocument: 
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - 's3:GetObject'
+            Resource:
+              - arn:aws:s3:::capstonesakblog/*
+      RouteTableIds: 
+        - !Ref rCapstonePrivateRouteTable
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcId: !Ref rCapstoneVPC
+  
+  rCapstoneALBSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB Security Group allows traffic HTTP and HTTPS ports from anywhere
+      GroupName: capstone_ALB_Sec_Group
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: capstone_ALB_Sec_Group
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstoneEC2SecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EC2 Security Groups only allows traffic coming from aws_capstone_ALB_Sec_Group Security Groups for HTTP and HTTPS ports. In addition, ssh port is allowed from anywhere
+      GroupName: capstone_EC2_Sec_Group
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: capstone_EC2_Sec_Group
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstoneRDSSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB Security Group allows traffic HTTP and HTTPS ports from anywhere
+      GroupName: capstone_RDS_Sec_Group
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref rCapstoneEC2SecGrp
+      Tags:
+        - Key: Name
+          Value: capstone_RDS_Sec_Group
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstoneNATInstSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB Security Group allows traffic HTTP and HTTPS ports from anywhere
+      GroupName: capstone_NAT_Sec_Group
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: capstone_NAT_Sec_Group
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstoneDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: 
+      DBSubnetGroupDescription: Subnet for RDS instance
+      DBSubnetGroupName: capstone_RDS_Subnet_Group
+      SubnetIds: 
+        - !Ref rCapstoneSubnet2
+        - !Ref rCapstoneSubnet4
+      Tags: 
+        - Key: Name
+          Value: capstone_RDS_Subnet_Group
+
+  rCapstoneRDSDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties: 
+      AllocatedStorage: 20
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: false
+      AvailabilityZone: !Ref pAvZone1
+      DBInstanceClass: db.t2.micro
+      DBInstanceIdentifier: CapstoneDB
+      DBName: database1
+      DBSubnetGroupName: !Ref rCapstoneDBSubnetGroup
+      Engine: mysql
+      MasterUsername: !Ref pDBUserName
+      MasterUserPassword: !Ref pDBPassword
+      Port: 3306
+      PubliclyAccessible: false
+      PreferredBackupWindow: 03:00-04:00
+      PreferredMaintenanceWindow: Sun:04:00-Sun:05:00 
+      VPCSecurityGroups:
+        - !Ref rCapstoneRDSSecGrp
+
+  rCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref pDomainName
+      DomainValidationOptions:
+      - DomainName: !Ref pDomainName
+        HostedZoneId: !Ref pHostedZoneId
+      ValidationMethod: 'DNS'
+
+  rCapstoneBucket1:
+    Type: AWS::S3::Bucket
+    Properties: 
+      BucketName: capstonesakblog
+      OwnershipControls: 
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      PublicAccessBlockConfiguration: 
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  rCapstoneBucket2:
+    Type: AWS::S3::Bucket
+    Properties: 
+      BucketName: www.nodehouse2.com
+      OwnershipControls: 
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      PublicAccessBlockConfiguration: 
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        ErrorDocument: error.html
+        IndexDocument: index.html
+
+  rCapstoneNATInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0aa210fd2121a98b7
+      InstanceType: t2.micro
+      KeyName: !Ref pKeyPair
+      SecurityGroupIds:
+        - !Ref rCapstoneNATInstSecGrp
+      SourceDestCheck: true
+      SubnetId: !Ref rCapstoneSubnet1
+      Tags:
+        - Key: Name
+          Value: Capstone-NAT-Instance
+
+  rCapstoneIAMNATInstRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: For EC2, S3 Full Access Role
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: capstone_EC2_S3_Full_Access_Policy_ak
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - Effect: Allow
+                Action: 's3:*'
+                Resource: '*'
+      RoleName: capstone_EC2_S3_Full_Access_Role_ak
+
+  rCapstoneInstProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: CapstoneInstanceProfile
+      Path: '/'
+      Roles:
+        - !Ref rCapstoneIAMNATInstRole
+
+  rCapstoneLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        IamInstanceProfile: 
+          Arn: !GetAtt rCapstoneInstProfile.Arn
+        ImageId: ami-0263e4deb427da90e
+        InstanceType: t2.micro
+        KeyName: !Ref pKeyPair
+        SecurityGroupIds:
+          - !Ref rCapstoneEC2SecGrp
+        UserData: !Base64 |
+          #!/bin/bash -x
+
+          #update os
+          yum update -y
+
+          #install apache server
+          yum install -y httpd
+
+          # create a custom index.html file
+          chmod -R 777 /var/www/html
+          echo "<html>
+          <head>
+              <title> Web Server Running in AWS</title>
+          </head>
+          <body>
+              <h1>This web server is protected by AWS WAF</h1>
+          </body>
+          </html>" > /var/www/html/index.html
+
+          # start apache server
+          systemctl start httpd
+          systemctl enable httpd
+      LaunchTemplateName: capstone_launch_template
+      TagSpecifications:
+        - ResourceType: launch-template 
+          Tags:
+            - Key: Name 
+              Value: capstone_LT
+      VersionDescription: Luanch template for Capstone web server instances
+  
+  rCapstoneLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: capstoneALB
+      Scheme: internet-facing
+      SecurityGroups:
+        - !GetAtt rCapstoneALBSecGrp.GroupId
+      Subnets:
+        - !Ref rCapstoneSubnet1
+        - !Ref rCapstoneSubnet3
+      Tags:
+        - Key: Name
+          Value: capstoneALB
+      Type: application
+
+  rCapstoneLoadBalancerListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward 
+          TargetGroupArn: !Ref rCapstoneTargetGroup
+      LoadBalancerArn: !Ref rCapstoneLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  rCapstoneLoadBalancerListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Certificates:
+        - CertificateArn: arn:aws:acm:us-east-1:355740888737:certificate/0fe97b8c-4cc8-4a3c-8141-a9949738950e
+      DefaultActions:
+        - Type: forward 
+          TargetGroupArn: !Ref rCapstoneTargetGroup
+      LoadBalancerArn: !Ref rCapstoneLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+
+  rCapstoneTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: '/'
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      Matcher:
+        HttpCode: 200 
+      Name: capstoneTargetGroup
+      Port: 443
+      Protocol: HTTPS
+      ProtocolVersion: HTTP1
+      Tags:
+        - Key: Name 
+          Value: capstoneTargetGroup
+      TargetType: instance
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref rCapstoneVPC
+
+  rCapstoneAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: capstone_ASG
+      DesiredCapacity: 2
+      HealthCheckGracePeriod: 200
+      HealthCheckType: ELB
+      LaunchTemplate:
+        LaunchTemplateId: !Ref rCapstoneLaunchTemplate
+        Version: '1'
+      MaxSize: '4'
+      MinSize: '2'
+      Tags:
+        - Key: Name
+          Value: capstone_ASG
+          PropagateAtLaunch: true
+      TargetGroupARNs:
+        - !Ref rCapstoneTargetGroup
+      VPCZoneIdentifier:
+        - !Ref rCapstoneSubnet1
+        - !Ref rCapstoneSubnet3
+
+  rCapstoneASGScalingPolicy:
+      Type: AWS::AutoScaling::ScalingPolicy
+      Properties:
+        AutoScalingGroupName: !Ref rCapstoneAutoScalingGroup
+        PolicyType: TargetTrackingScaling
+        TargetTrackingConfiguration: 
+          PredefinedMetricSpecification: 
+            PredefinedMetricType: ASGAverageCPUUtilization
+          TargetValue: 70.0 
+
+  rCapstoneSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: CapstoneCPU-Topic
+      Subscription:
+        - Endpoint: !Ref pEmail
+          Protocol: email
+      TopicName: CapstoneCPU-Topic
+      Tags:
+        - Key: Name
+          Value: CapstoneCPU-Topic
+
+  rCapstoneScalAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref rCapstoneSNSTopic
+      AlarmDescription: Alarm for target auto scaling group
+      AlarmName: CapstoneCPU-Alarm
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref rCapstoneAutoScalingGroup
+      EvaluationPeriods: 1
+      MetricName: 'CPUUtilization'
+      Namespace: AWS/EC2
+      Period: 10
+      Statistic: Average 
+      Threshold: 70
+
+  rCapstoneEventRule:  
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: Event rule for auto scaling group
+      EventPattern:
+        source:
+          - aws.application-autoscaling
+        detail-type:
+          - Application Auto Scaling Scaling Activity State Change
+      Name: CapstoneASG-Rule
+      State: ENABLED
+      Targets: 
+        - Arn: 
+            !GetAtt rCapstoneSNSTopic.TopicArn
+          Id: EBR123
+
+  rCapstoneCFDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !GetAtt 'rCapstoneLoadBalancer.DNSName'
+            Id: !Ref rCapstoneLoadBalancer
+            CustomOriginConfig: 
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          AllowedMethods: 
+            - GET
+            - HEAD
+            - DELETE
+            - OPTIONS
+            - PATCH
+            - POST
+            - PUT 
+          Compress: true
+          ForwardedValues: 
+            Cookies: 
+              Forward: all
+            Headers: 
+              - Accept
+              - Accept-Charset
+              - Accept-Datetime
+              - Accept-Encoding
+              - Accept-Language
+              - Authorization
+              - Cloudfront-Forwarded-Proto
+              - Host
+              - Origin
+              - Referrer
+            QueryString: true
+          MaxTTL: 0
+          MinTTL: 0
+          TargetOriginId: CapstoneOrigin
+          ViewerProtocolPolicy: redirect-to-https
+        Aliases:
+          - !Ref pDomainName
+        ViewerCertificate: 
+          AcmCertificateArn: !Ref rCertificate
+          SslSupportMethod: sni-only
+        Comment: Cloudfront for Capstone Loadbalancer
+        Enabled: false
+        HttpVersion: http2
+        PriceClass: PriceClass_All
+
+Outputs:
+  AppLoadBalURL:
+    Value: !Join 
+      -  ''
+      - -  'https://'
+        -  !GetAtt rCapstoneLoadBalancer.DNSName

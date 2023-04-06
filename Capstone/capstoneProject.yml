@@ -1,0 +1,404 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Blog Page Application (Django) deployed on AWS Application Load Balancer with Auto Scaling, S3, Relational Database Service(RDS),
+  VPC's Components, Lambda, DynamoDB and Cloudfront with Route 53
+
+Parameters:
+
+  pDBPass:
+    Description: Password for database user
+    Type: String
+    NoEcho: true
+  
+  pDBUser:
+    Description: Database username
+    Type: String
+
+  BucketName1:
+    Type: String
+    Description: Name of s3 bucket
+  
+  # BucketName2:
+  #   Type: String
+  #   Description: Use domain bucket from previous project
+  #   Default: www.nodehouse2.com
+
+  pLatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+
+  pKeyPair:
+    Description: Choose Key pair for instance login
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+
+# Dedicated VPC for Capstone Project
+
+  rMyVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 128.10.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: CapStoneVpc
+
+# Four subnets two punlic and two private.
+
+  rMyFirstSubnetPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZoneId: use1-az2
+      CidrBlock: 128.10.0.0/18
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: CapStoneVpc-AZ1a-public-subnet
+      VpcId: !Ref rMyVpc
+
+  rMySecondSubnetPriv:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZoneId: use1-az2
+      CidrBlock: 128.10.64.0/18
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: CapStoneVpc-AZ1a-private-subnet
+      VpcId: !Ref rMyVpc
+
+  rMyThirdSubnetPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZoneId: use1-az4
+      CidrBlock: 128.10.128.0/18
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: CapStoneVpc-AZ1b-public-subnet
+      VpcId: !Ref rMyVpc
+
+  rMyForthSubnetPriv:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZoneId: use1-az4
+      CidrBlock: 128.10.192.0/18
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: CapStoneVpc-AZ1b-private-subnet
+      VpcId: !Ref rMyVpc
+
+# Public and Private RouteTables
+
+  myPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        !Ref rMyVpc
+      Tags:
+      - Key: Name
+        Value: CapStoneVpc-public-routeTable
+
+  myPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        !Ref rMyVpc
+      Tags:
+      - Key: Name
+        Value: CapStoneVpc-private-routeTable
+
+# Internet Gateway, assocation with CapStoneVpc and Public RouteTable assocaition
+
+  rMyIgw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: CapStoneVpc-igw
+
+  rMyIgwAssociation:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref rMyIgw
+      VpcId: !Ref rMyVpc
+
+  rMyIgwRoute:
+    Type: AWS::EC2::Route
+    Properties:
+       RouteTableId: !Ref myPublicRouteTable
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId: !Ref rMyIgw
+
+# Public Subnet association with Public RouteTable
+
+  myRouteTabAssoMyFirstSubnetPub: 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref myPublicRouteTable
+      SubnetId: !Ref rMyFirstSubnetPub
+
+  myRouteTabAssoMyThirdSubnetPub: 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref myPublicRouteTable
+      SubnetId: !Ref rMyThirdSubnetPub
+
+# Private Subnet association with Private RouteTable
+
+  myRouteTabAssoMySecondSubnetPriv: 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref myPrivateRouteTable
+      SubnetId: !Ref rMySecondSubnetPriv
+
+  myRouteTabAssoMyForthSubnetPriv: 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref myPrivateRouteTable
+      SubnetId: !Ref rMyForthSubnetPriv
+
+# NAT Gateway with Elastic IP and assocation to Public subnet and Private RouteTable.
+
+  rNATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+        AllocationId: !GetAtt rNATGatewayEIP.AllocationId
+        SubnetId: !Ref rMyFirstSubnetPub
+        Tags:
+        - Key: Name
+          Value: CapStoneVpc-NAT-gw
+  
+  rNATGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+        Domain: !Ref rMyVpc
+        Tags:
+          - Key: Name
+            Value: CapStoneVpc-NATgw-EIP
+
+  rRouteNATGateway:
+    Type: AWS::EC2::Route
+    Properties:
+        RouteTableId: !Ref myPrivateRouteTable
+        DestinationCidrBlock: '0.0.0.0/0'
+        NatGatewayId: !Ref rNATGateway
+
+#Webserver Security Group
+
+  rCapStoneWebSrvSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP and SSH to the web server
+      GroupName: capStone-Websrv-Sec-Grp
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: capStone-Websrv-Sec-Grp
+      VpcId: !Ref rMyVpc
+
+# MySQL RDS Security Group
+
+  rCapsstoneRDSSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Database security group for MySQL port 3306
+      GroupName: capStone-RDS-Sec-grp
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+      Tags: 
+        - Key: Name
+          Value: capStone-RDS-Sec-grp
+      VpcId: !Ref rMyVpc
+
+# Application Loadbalancer Security Group
+
+  rCapstoneALBSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP to the load balancer
+      GroupName: capStone-ALB-Sec-Grp
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      Tags: 
+        - Key: Name
+          Value: capStone-ALB-Sec-grp
+      VpcId: !Ref rMyVpc
+
+# RDS MySQL Database
+
+  rCapstoneRDSMYSQLDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: "20"
+      DBInstanceClass: db.t2.micro
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: false
+      BackupRetentionPeriod: 0
+      DBInstanceIdentifier: Capstone
+      # DBSubnetGroupName: capStone-RDS-Sec-grp
+      DBName: cps
+      Engine: MySQL
+      EngineVersion: 8.0.28
+      MasterUsername: !Ref pDBUser
+      MasterUserPassword: !Ref pDBPass
+      Port: "3306"
+      PubliclyAccessible: true
+      VPCSecurityGroups:
+        - !GetAtt rCapsstoneRDSSecGrp.GroupId
+
+# # Create first s3 bucket
+
+  rS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: !Ref BucketName1
+      Tags:
+        - Key: Name
+          Value: capStone-Project-bucket
+      VersioningConfiguration:
+        Status: "Enabled"
+
+# IAM Role, Launch template 
+
+  rCapstoneLTempIAMRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Statement:
+          - Effect: Allow
+            Principal: 
+              Service: ec2.amazonaws.com
+            Action: 'sts:AssumeRole'
+
+  rCapStoneLTInstProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      Path: /
+      Roles: 
+        - !Ref rCapstoneLTempIAMRole
+
+  rCapstoneLaunchTemp:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref pLatestAmiId
+        InstanceType: t2.micro
+        KeyName: !Ref pKeyPair
+        SecurityGroupIds:
+          - !GetAtt rCapStoneWebSrvSecGrp.GroupId
+        # IamInstanceProfile: !Ref rCapStoneLTInstProfile
+        # SubnetId: !Ref rMyFirstSubnetPub
+        UserData: !Base64 |
+          #! /bin/bash -x
+          sudo yum update -y
+          yum install -y httpd
+          sudo systemctl start httpd
+          sudo systemctl enable httpd
+          sudo yum install -y asgiref==3.3.1
+          sudo yum install -y autopep8==1.5.4
+          sudo yum install -y boto3==1.17.17
+          sudo yum install -y botocore==1.20.17
+          sudo yum install -y Django==3.1.4
+          sudo yum install -y django-crispy-forms==1.10.0
+          sudo yum install -y django-storages==1.11.1
+          sudo yum install -y jmespath==0.10.0
+          sudo yum install -y mysqlclient==2.0.3
+          sudo yum install -y Pillow==8.0.1
+          sudo yum install -y pycodestyle==2.6.0
+          sudo yum install -y python-dateutil==2.8.1
+          sudo yum install -y python-decouple==3.3
+          sudo yum install -y pytz==2020.5
+          sudo yum install -y s3transfer==0.3.4
+          sudo yum install -y six==1.15.0
+          sudo yum install -y sqlparse==0.4.1
+          sudo yum install -y toml==0.10.2
+          sudo yum install -y urllib3==1.26.3
+
+# Target group for capstone 
+
+  rCapStoneTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: WebServerTargetGroup
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref rMyVpc
+
+# Capstone Application LoadBalancer
+
+  rCapstoneAppLoadBal:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: capStoneALB
+      Scheme: internet-facing
+      SecurityGroups:
+      - !GetAtt rCapstoneALBSecGrp.GroupId
+      Subnets: 
+        - !Ref rMyFirstSubnetPub
+        - !Ref rMyThirdSubnetPub
+      Type: application
+
+# Capstone ALB Listener
+
+  rCapstoneListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - TargetGroupArn: !Ref rCapStoneTargetGroup
+        Type: forward
+      LoadBalancerArn: !Ref rCapstoneAppLoadBal 
+      Port: 80
+      Protocol: HTTP
+
+# Capstone Auto Scaling Group
+
+  rVapstoneAutoSG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: WebServerASG
+      DesiredCapacity: "2"
+      MaxSize: "4" 
+      MinSize: "2" 
+      HealthCheckGracePeriod: 90
+      HealthCheckType: "ELB"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref rCapstoneLaunchTemp
+        Version: !GetAtt rCapstoneLaunchTemp.LatestVersionNumber
+      TargetGroupARNs:
+      - !Ref rCapStoneTargetGroup
+      VPCZoneIdentifier: 
+        - !Ref rMyFirstSubnetPub
+        - !Ref rMyThirdSubnetPub
+#Outputs:
