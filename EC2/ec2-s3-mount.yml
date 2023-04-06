@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Create security group, iam role, ec2 instance s3 bucket, vpc mount point. Mount s3 bucket on ec2 instance.
+
+Parameters:
+  
+  pKeyPair:
+    Description: Key pair for ec2 instance
+    Type: AWS::EC2::KeyPair::KeyName
+
+  pVPC:
+    Description: Choose VPC for ec2 instance
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-01547b67af36bc228
+
+  pLatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  pSubnet:
+    Description: Subnet for ec2 instance
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-076059b67c473e1dc
+
+  pRouteTable:
+    Description: Route table in public subnet
+    Type: String
+    Default: rtb-044024bf24164a6fa
+
+Resources:
+
+  rS3ec2Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: ora-ec2mountbucket
+      Tags:
+        - Key: "Name"
+          Value: "ora-ec2mountbucket-Project"
+      VersioningConfiguration:
+        Status: "Enabled"
+
+  rS3ec2InstSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Sucurity group with SSH and HTTPS for ec2 instance
+      GroupName: ora-ec2mount-SecGrp
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags: 
+        - Key: Name
+          Value: ora-ec2mountbucket-Project
+      VpcId: !Ref pVPC
+
+  rS3ec2IAMrole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: iam role granting s3 full access to ec2
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies: 
+        - PolicyName: s3ec2-full-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 's3:*'
+                Resource: '*'
+      RoleName: ora-ec2mount-Role
+      Tags: 
+        - Key: Name 
+          Value: ora-ec2mountbucket-Project
+
+  rS3ec2Inst:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref pLatestAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref pKeyPair
+      IamInstanceProfile: !Ref rS3ec2InstProfile
+      SubnetId: !Ref pSubnet
+      SecurityGroupIds:
+        - !Ref rS3ec2InstSecGrp
+      Tags:
+        - Key: Name 
+          Value: ora-ec2mountbucket-Project
+    
+  rS3ec2InstProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref rS3ec2IAMrole
+
+  S3GatewayEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: '*'
+            Resource:
+              - 'arn:aws:s3:::ora-ec2mountbucket/*'
+      RouteTableIds:
+        - !Ref pRouteTable
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcId: !Ref pVPC
+
+#Outputs:
