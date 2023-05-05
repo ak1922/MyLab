@@ -96,7 +96,18 @@ Resources:
       Tags:
         - Key: Name 
           Value: ora-ec2mountbucket-Project
-    
+      UserData: !Base64 |
+          #!/bin/bash -x
+          sudo yum update -y
+          sudo yum install -y automake fuse fuse-devel gcc-c++ git libcurl-devel libxml2-devel make openssl-devel
+          sudo mkdir /demobucket
+          git clone https://github.com/s3fs-fuse/s3fs-fuse.git
+          cd s3fs-fuse
+          sh autogen.sh
+          sh configure --prefix=/usr --with-openssl
+          make
+          sudo make install
+
   rS3ec2InstProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
