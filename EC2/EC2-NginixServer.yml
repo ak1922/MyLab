@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: |
-   Install Nginx Web Server on Amazon Linux 2 EC2 instance
+   Install Nginx Web Server on Amazon Linux 2 EC2 instance. Without server exts
 
 Parameters:
   pKeyPair:
