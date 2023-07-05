@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: |
-  Create security group, iam role, ec2 instance s3 bucket, vpc mount point. Mount s3 bucket on ec2 instance.
+  Create security group, iam role, ec2 instance s3 bucket, vpc mount point. Mount s3 bucket on ec2 instance (Manual upload needed).
 
 Parameters:
   
