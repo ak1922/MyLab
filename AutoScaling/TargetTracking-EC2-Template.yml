@@ -16,13 +16,19 @@ Parameters:
     Description: KeyPair Name
     Type: AWS::EC2::KeyPair::KeyName
 
-  pSubnets:
-    Description: Subnets where EC2 instances are launched
-    Type: List<AWS::EC2::Subnet::Id>
-
   pEmail:
     Description: Email for SNS Topic subscription
     Type: String
+
+  pSubnet1:
+    Description: Public Subnet1
+    Type: String
+    Default: subnet-0c4b74bad6619fe23
+
+  pSubnet2:
+    Description: Public Subnet2
+    Type: String
+    Default: subnet-0ff9931a1db0e882a
 
 Resources:
 
@@ -140,8 +146,10 @@ Resources:
       Name: TargScalLoadBalancer
       Scheme: internet-facing
       SecurityGroups:
-        - !GetAtt rTargScalAppLoadBalSecurityGroup.GroupId
-      Subnets: !Ref pSubnets
+        - !Ref rTargScalAppLoadBalSecurityGroup
+      Subnets: 
+        - !Ref pSubnet1
+        - !Ref pSubnet2
       Tags:
         - Key: Name
           Value: TargScalLoadBalancer
@@ -173,7 +181,6 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: TargScalAutoScalingGroup
-      AvailabilityZones: !GetAZs ''
       DesiredCapacity: '2'
       HealthCheckType: ELB
       LaunchTemplate:
@@ -183,6 +190,9 @@ Resources:
       MinSize: '1' 
       TargetGroupARNs:
         - !Ref rTargScalTargetGroup
+      VPCZoneIdentifier:
+        - !Ref pSubnet1
+        - !Ref pSubnet2
       NotificationConfigurations: 
         - TopicARN: !Ref rTargScalSNSTopic1
           NotificationTypes:
