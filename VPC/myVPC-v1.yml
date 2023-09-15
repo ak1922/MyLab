@@ -1,0 +1,200 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Second VPC for my account
+  
+Parameters:
+  pAvailabilityZone1:
+    Description: 1st AZ for VPC
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1a
+
+  pAvailabilityZone2:
+    Description: 2nd AZ for VPC
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1b
+
+  pAvailabilityZone3:
+    Description: 3rd AZ for VPC
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1c
+  
+  pMyVPCDefaultRouteTable:
+    Description: Default route table for akVPC-v1
+    Type: String
+    Default: rtb-0a949e1226cbbc220
+
+Resources:
+
+  rMyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.7.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags: 
+        - Key: Name 
+          Value: akVPC-v1
+
+  rMyVPCInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: 
+        - Key: Name 
+          Value: akVPC-v1-InternetGateway
+  
+  rMyVPCInternetGatewayAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref rMyVPCInternetGateway
+      VpcId: !Ref rMyVPC
+
+  rMyVPCPubicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAvailabilityZone1
+      CidrBlock: 10.7.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - Key: Name
+          Value: akVPC-v1-PublicSubnet1
+      VpcId: !Ref rMyVPC
+
+  rMyVPCPrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAvailabilityZone1
+      CidrBlock: 10.7.2.0/24
+      MapPublicIpOnLaunch: false
+      Tags: 
+        - Key: Name
+          Value: akVPC-v1-PrivateSubnet1
+      VpcId: !Ref rMyVPC
+
+  rMyVPCPubicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAvailabilityZone2
+      CidrBlock: 10.7.4.0/24
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - Key: Name
+          Value: akVPC-v1-PublicSubnet2
+      VpcId: !Ref rMyVPC
+
+  rMyVPCPrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAvailabilityZone2
+      CidrBlock: 10.7.5.0/24
+      MapPublicIpOnLaunch: false
+      Tags: 
+        - Key: Name
+          Value: akVPC-v1-PrivateSubnet2
+      VpcId: !Ref rMyVPC
+
+  rMyVPCPubicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAvailabilityZone3
+      CidrBlock: 10.7.7.0/24
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - Key: Name
+          Value: akVPC-v1-PublicSubnet3
+      VpcId: !Ref rMyVPC
+
+  rMyVPCPrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref pAvailabilityZone3
+      CidrBlock: 10.7.8.0/24
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - Key: Name
+          Value: akVPC-v1-PrivateSubnet3
+      VpcId: !Ref rMyVPC
+
+  rMyVPCInternetGatewayRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rMyVPCInternetGateway
+      RouteTableId: !Ref pMyVPCDefaultRouteTable
+
+  rMyVPCPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: akVPC-v1-PrivateRouteTable
+      VpcId: !Ref rMyVPC
+
+  rMyVPCPrivateSubnet1RouteTableAssc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rMyVPCPrivateRouteTable
+      SubnetId: !Ref rMyVPCPrivateSubnet1
+
+  rMyVPCPrivateSubnet2RouteTableAssc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rMyVPCPrivateRouteTable
+      SubnetId: !Ref rMyVPCPrivateSubnet2
+
+  rMyVPCPrivateSubnet3RouteTableAssc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rMyVPCPrivateRouteTable
+      SubnetId: !Ref rMyVPCPrivateSubnet3
+
+  rMyVPCPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: akVPC-v1-PublicRouteTable
+      VpcId: !Ref rMyVPC
+
+  rMyVPCPubicSubnet1RouteTableAssc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rMyVPCPublicRouteTable
+      SubnetId: !Ref rMyVPCPubicSubnet1
+
+  rMyVPCPubicSubnet2RouteTableAssc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rMyVPCPublicRouteTable
+      SubnetId: !Ref rMyVPCPubicSubnet2
+
+  rMyVPCPubicSubnet3RouteTableAssc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rMyVPCPublicRouteTable
+      SubnetId: !Ref rMyVPCPubicSubnet3
+
+  rMyVPCElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: akVPC-v1-ElasticIP
+
+  rMyVPCNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt rMyVPCElasticIP.AllocationId
+      SubnetId: !Ref rMyVPCPubicSubnet1
+      Tags: 
+        - Key: Name
+          Value: akVPC-v1-NatGateway
+
+  rMyVPCNatGatewayRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref rMyVPCNatGateway
+      RouteTableId: !Ref rMyVPCPrivateRouteTable
+
+#Outputs:
