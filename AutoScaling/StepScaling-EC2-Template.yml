@@ -134,7 +134,8 @@ Resources:
       Scheme: internet-facing
       SecurityGroups:
         - !GetAtt rStepScalAppLoadBalSecurityGroup.GroupId
-      Subnets: !Ref pSubnets
+      Subnets: 
+        - !Ref pSubnets
       Tags:
         - Key: Name
           Value: STSPLoadBalancer
